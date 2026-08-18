@@ -1,0 +1,104 @@
+from enum import StrEnum
+
+
+class LifecycleStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+
+
+class DocumentKind(StrEnum):
+    RFP = "RFP"
+    PRODUCT_KNOWLEDGE = "PRODUCT_KNOWLEDGE"
+
+
+class ProcessingStatus(StrEnum):
+    RECEIVED = "RECEIVED"
+    PARSED = "PARSED"
+    FAILED = "FAILED"
+
+
+class RequirementStatus(StrEnum):
+    PROPOSED = "PROPOSED"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class MappingStatus(StrEnum):
+    PROPOSED = "PROPOSED"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+
+
+class EvidenceSourceType(StrEnum):
+    OFFICIAL_SPECIFICATION = "OFFICIAL_SPECIFICATION"
+    CERTIFICATION = "CERTIFICATION"
+    TEST_REPORT = "TEST_REPORT"
+    RELEASE_NOTES = "RELEASE_NOTES"
+    ROADMAP = "ROADMAP"
+    PREVIOUS_APPROVED_RESPONSE = "PREVIOUS_APPROVED_RESPONSE"
+    INTERNAL_NOTE = "INTERNAL_NOTE"
+    OTHER = "OTHER"
+
+
+class EvidenceAuthorityLevel(StrEnum):
+    AUTHORITATIVE = "AUTHORITATIVE"
+    STRONG = "STRONG"
+    SUPPORTING = "SUPPORTING"
+    WEAK = "WEAK"
+    UNVERIFIED = "UNVERIFIED"
+
+
+class EvidenceStatus(StrEnum):
+    CANDIDATE = "CANDIDATE"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+
+
+class ComplianceOutcome(StrEnum):
+    COMPLY = "COMPLY"
+    PARTIAL = "PARTIAL"
+    NON_COMPLY = "NON_COMPLY"
+    UNKNOWN = "UNKNOWN"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+    NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"
+
+
+class DecisionStatus(StrEnum):
+    DRAFT = "DRAFT"
+    IN_REVIEW = "IN_REVIEW"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class ReviewRisk(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    BLOCKING = "BLOCKING"
+
+
+class ReviewStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+
+
+class ReviewMode(StrEnum):
+    SINGLE = "SINGLE"
+    BATCH = "BATCH"
+
+
+class ConflictStatus(StrEnum):
+    OPEN = "OPEN"
+    CONFIRMED = "CONFIRMED"
+    DISMISSED = "DISMISSED"
+    RESOLVED = "RESOLVED"
+
+
+class ResponseStatus(StrEnum):
+    SNAPSHOT = "SNAPSHOT"
+    EXPORTED = "EXPORTED"
+    SUPERSEDED = "SUPERSEDED"

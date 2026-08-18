@@ -1,0 +1,557 @@
+{
+  "$defs": {
+    "ComplianceOutcome": {
+      "enum": [
+        "COMPLY",
+        "PARTIAL",
+        "NON_COMPLY",
+        "UNKNOWN",
+        "NOT_APPLICABLE",
+        "NEEDS_CLARIFICATION"
+      ],
+      "title": "ComplianceOutcome",
+      "type": "string"
+    },
+    "DocxLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "kind": {
+          "const": "DOCX",
+          "default": "DOCX",
+          "enum": [
+            "DOCX"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "paragraph_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paragraph Index"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "section_path": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Section Path",
+          "type": "array"
+        },
+        "table_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Index"
+        }
+      },
+      "title": "DocxLocator",
+      "type": "object"
+    },
+    "EvidenceAuthorityLevel": {
+      "enum": [
+        "AUTHORITATIVE",
+        "STRONG",
+        "SUPPORTING",
+        "WEAK",
+        "UNVERIFIED"
+      ],
+      "title": "EvidenceAuthorityLevel",
+      "type": "string"
+    },
+    "EvidenceSourceType": {
+      "enum": [
+        "OFFICIAL_SPECIFICATION",
+        "CERTIFICATION",
+        "TEST_REPORT",
+        "RELEASE_NOTES",
+        "ROADMAP",
+        "PREVIOUS_APPROVED_RESPONSE",
+        "INTERNAL_NOTE",
+        "OTHER"
+      ],
+      "title": "EvidenceSourceType",
+      "type": "string"
+    },
+    "GoldAtomicRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_text": {
+          "minLength": 1,
+          "title": "Atomic Text",
+          "type": "string"
+        },
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "modality": {
+          "minLength": 1,
+          "title": "Modality",
+          "type": "string"
+        },
+        "source_end_offset": {
+          "exclusiveMinimum": 0,
+          "title": "Source End Offset",
+          "type": "integer"
+        },
+        "source_quote": {
+          "minLength": 1,
+          "title": "Source Quote",
+          "type": "string"
+        },
+        "source_start_offset": {
+          "minimum": 0,
+          "title": "Source Start Offset",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "atomic_text",
+        "source_quote",
+        "source_start_offset",
+        "source_end_offset",
+        "modality"
+      ],
+      "title": "GoldAtomicRequirement",
+      "type": "object"
+    },
+    "GoldCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "gold_atomic_requirements": {
+          "items": {
+            "$ref": "#/$defs/GoldAtomicRequirement"
+          },
+          "minItems": 1,
+          "title": "Gold Atomic Requirements",
+          "type": "array"
+        },
+        "gold_compliance_outcomes": {
+          "items": {
+            "$ref": "#/$defs/GoldComplianceOutcome"
+          },
+          "minItems": 1,
+          "title": "Gold Compliance Outcomes",
+          "type": "array"
+        },
+        "gold_evidence_spans": {
+          "items": {
+            "$ref": "#/$defs/GoldEvidenceSpan"
+          },
+          "title": "Gold Evidence Spans",
+          "type": "array"
+        },
+        "gold_mappings": {
+          "items": {
+            "$ref": "#/$defs/GoldMapping"
+          },
+          "title": "Gold Mappings",
+          "type": "array"
+        },
+        "source_requirement": {
+          "$ref": "#/$defs/GoldSourceRequirement"
+        }
+      },
+      "required": [
+        "case_id",
+        "description",
+        "source_requirement",
+        "gold_atomic_requirements",
+        "gold_mappings",
+        "gold_evidence_spans",
+        "gold_compliance_outcomes"
+      ],
+      "title": "GoldCase",
+      "type": "object"
+    },
+    "GoldComplianceOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "assessment_as_of": {
+          "format": "date",
+          "title": "Assessment As Of",
+          "type": "string"
+        },
+        "atomic_requirement_key": {
+          "title": "Atomic Requirement Key",
+          "type": "string"
+        },
+        "critical": {
+          "default": false,
+          "title": "Critical",
+          "type": "boolean"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ComplianceOutcome"
+        },
+        "product_version_key": {
+          "title": "Product Version Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atomic_requirement_key",
+        "product_version_key",
+        "assessment_as_of",
+        "outcome"
+      ],
+      "title": "GoldComplianceOutcome",
+      "type": "object"
+    },
+    "GoldEvidenceSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_path": {
+          "minLength": 1,
+          "title": "Asset Path",
+          "type": "string"
+        },
+        "atomic_requirement_key": {
+          "title": "Atomic Requirement Key",
+          "type": "string"
+        },
+        "authority_level": {
+          "$ref": "#/$defs/EvidenceAuthorityLevel"
+        },
+        "exact_quote": {
+          "minLength": 1,
+          "title": "Exact Quote",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "locator": {
+          "discriminator": {
+            "mapping": {
+              "DOCX": "#/$defs/DocxLocator",
+              "PDF": "#/$defs/PdfLocator",
+              "XLSX": "#/$defs/XlsxLocator"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PdfLocator"
+            },
+            {
+              "$ref": "#/$defs/DocxLocator"
+            },
+            {
+              "$ref": "#/$defs/XlsxLocator"
+            }
+          ],
+          "title": "Locator"
+        },
+        "product_version_key": {
+          "title": "Product Version Key",
+          "type": "string"
+        },
+        "source_type": {
+          "$ref": "#/$defs/EvidenceSourceType"
+        },
+        "valid_from": {
+          "format": "date",
+          "title": "Valid From",
+          "type": "string"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "key",
+        "atomic_requirement_key",
+        "product_version_key",
+        "asset_path",
+        "source_type",
+        "authority_level",
+        "valid_from",
+        "exact_quote",
+        "locator"
+      ],
+      "title": "GoldEvidenceSpan",
+      "type": "object"
+    },
+    "GoldMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_requirement_key": {
+          "title": "Atomic Requirement Key",
+          "type": "string"
+        },
+        "capability_key": {
+          "title": "Capability Key",
+          "type": "string"
+        },
+        "product_key": {
+          "title": "Product Key",
+          "type": "string"
+        },
+        "product_version_key": {
+          "title": "Product Version Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atomic_requirement_key",
+        "product_key",
+        "product_version_key",
+        "capability_key"
+      ],
+      "title": "GoldMapping",
+      "type": "object"
+    },
+    "GoldSourceRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_path": {
+          "description": "Dataset-relative source document path",
+          "minLength": 1,
+          "title": "Asset Path",
+          "type": "string"
+        },
+        "locator": {
+          "discriminator": {
+            "mapping": {
+              "DOCX": "#/$defs/DocxLocator",
+              "PDF": "#/$defs/PdfLocator",
+              "XLSX": "#/$defs/XlsxLocator"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PdfLocator"
+            },
+            {
+              "$ref": "#/$defs/DocxLocator"
+            },
+            {
+              "$ref": "#/$defs/XlsxLocator"
+            }
+          ],
+          "title": "Locator"
+        },
+        "source_text": {
+          "minLength": 1,
+          "title": "Source Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_path",
+        "source_text",
+        "locator"
+      ],
+      "title": "GoldSourceRequirement",
+      "type": "object"
+    },
+    "PdfLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "kind": {
+          "const": "PDF",
+          "default": "PDF",
+          "enum": [
+            "PDF"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "page"
+      ],
+      "title": "PdfLocator",
+      "type": "object"
+    },
+    "XlsxLocator": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_range": {
+          "title": "Cell Range",
+          "type": "string"
+        },
+        "kind": {
+          "const": "XLSX",
+          "default": "XLSX",
+          "enum": [
+            "XLSX"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "sheet": {
+          "title": "Sheet",
+          "type": "string"
+        },
+        "table_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Name"
+        }
+      },
+      "required": [
+        "sheet",
+        "cell_range"
+      ],
+      "title": "XlsxLocator",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/GoldCase"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "dataset_id": {
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9._-]+$",
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "enum": [
+        "1.0"
+      ],
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "version",
+    "description",
+    "created_at"
+  ],
+  "title": "GoldDataset",
+  "type": "object"
+}

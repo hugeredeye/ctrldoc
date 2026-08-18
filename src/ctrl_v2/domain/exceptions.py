@@ -1,0 +1,18 @@
+class DomainError(Exception):
+    """Base class for expected domain failures."""
+
+
+class NotFoundError(DomainError):
+    pass
+
+
+class ConflictError(DomainError):
+    pass
+
+
+class InvariantViolation(DomainError):
+    pass
+
+
+class AuthenticationError(DomainError):
+    pass
