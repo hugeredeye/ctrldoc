@@ -9,7 +9,25 @@ from typing import Any
 class WorkspaceRecord:
     id: str
     name: str
-    access_token_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class PrincipalRecord:
+    id: str
+    issuer: str
+    subject: str
+    principal_type: str
+    active: bool
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceMembershipRecord:
+    workspace_id: str
+    principal_id: str
+    role: str
+    active: bool
+    created_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +182,7 @@ class DecisionRecord:
     assessment_as_of: date
     status: str
     approved_at: datetime | None
-    approved_by: str | None
+    approved_by_principal_id: str | None
     revision: int
 
 

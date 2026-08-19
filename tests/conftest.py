@@ -113,6 +113,10 @@ def client(postgres_urls: PostgreSQLTestUrls, tmp_path) -> Iterator[TestClient]:
             database_url=postgres_urls.runtime,
             object_storage_root=tmp_path / "private-objects",
             log_level="INFO",
+            environment="test",
+            auth_mode="dev",
+            dev_auth_enabled=True,
+            provisioning_principals={"urn:ctrl-v2:development|operator"},
         )
     )
     with TestClient(app) as test_client:

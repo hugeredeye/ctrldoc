@@ -6,7 +6,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
-EXPECTED_ALEMBIC_REVISION = "8d4f2a1c7b90"
+EXPECTED_ALEMBIC_REVISION = "c7a0e11f6b42"
 OWNER_ROLE = "ctrl_v2_owner"
 RUNTIME_ROLE = "ctrl_v2_runtime"
 TENANT_TABLES = frozenset(
@@ -37,6 +37,7 @@ TENANT_TABLES = frozenset(
         "response_items",
         "responses",
         "rfps",
+        "workspace_memberships",
     }
 )
 REQUIRED_TRIGGERS = {

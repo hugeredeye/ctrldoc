@@ -19,13 +19,27 @@ def xlsx_bytes(*values: str) -> bytes:
 
 
 class Journey:
-    def __init__(self, client: TestClient, workspace_name: str = "Acme") -> None:
+    def __init__(
+        self,
+        client: TestClient,
+        workspace_name: str = "Acme",
+        *,
+        principal_subject: str = "operator",
+    ) -> None:
         self.client = client
-        created = client.post("/api/v1/workspaces", json={"name": workspace_name})
+        self.principal_subject = principal_subject
+        auth_headers = {"Authorization": f"Dev {principal_subject}"}
+        created = client.post(
+            "/api/v1/workspaces",
+            headers=auth_headers,
+            json={"name": workspace_name},
+        )
         assert created.status_code == 201, created.text
         self.workspace = created.json()
         self.workspace_id = self.workspace["id"]
-        self.headers = {"X-Workspace-Token": self.workspace["access_token"]}
+        self.headers = auth_headers
+        if "access_token" in self.workspace:
+            self.headers = {"X-Workspace-Token": self.workspace["access_token"]}
 
     def post(self, path: str, **kwargs):
         return self.client.post(

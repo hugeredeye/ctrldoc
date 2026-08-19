@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any, TypeVar
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ctrl_v2.application.records import (
@@ -20,6 +21,7 @@ from ctrl_v2.application.records import (
     EvidenceSpanRecord,
     ExportRecord,
     MappingRecord,
+    PrincipalRecord,
     ProductRecord,
     ProductVersionRecord,
     RepresentationRecord,
@@ -28,9 +30,10 @@ from ctrl_v2.application.records import (
     RfpRecord,
     SnapshotEvidenceRecord,
     SnapshotItemRecord,
+    WorkspaceMembershipRecord,
     WorkspaceRecord,
 )
-from ctrl_v2.domain.exceptions import NotFoundError
+from ctrl_v2.domain.exceptions import ConflictError, NotFoundError
 
 from .models import (
     Capability,
@@ -44,6 +47,7 @@ from .models import (
     Evidence,
     EvidenceSpan,
     HumanReview,
+    Principal,
     Product,
     ProductVersion,
     ProductVersionCapability,
@@ -56,6 +60,9 @@ from .models import (
     ResponseItem,
     Rfp,
     Workspace,
+    WorkspaceMembership,
+    new_id,
+    utcnow,
 )
 
 OrmT = TypeVar("OrmT")
@@ -82,15 +89,92 @@ class SqlAlchemyStage1Repository:
             raise NotFoundError(f"{entity_name} was not found")
         return value
 
-    def create_workspace(self, name: str, access_token_hash: str) -> WorkspaceRecord:
-        row = Workspace(name=name, access_token_hash=access_token_hash)
+    def get_or_create_principal(
+        self, issuer: str, subject: str, principal_type: str
+    ) -> PrincipalRecord:
+        principal_id = new_id()
+        created_at = utcnow()
+        self.session.execute(
+            insert(Principal)
+            .values(
+                id=principal_id,
+                issuer=issuer,
+                subject=subject,
+                principal_type=principal_type,
+                active=True,
+                created_at=created_at,
+            )
+            .on_conflict_do_nothing(index_elements=[Principal.issuer, Principal.subject])
+        )
+        row = self.session.scalar(
+            select(Principal).where(Principal.issuer == issuer, Principal.subject == subject)
+        )
+        return self._principal(self._required(row, "Principal"))
+
+    def get_principal(self, principal_id: str) -> PrincipalRecord | None:
+        row = self.session.get(Principal, principal_id)
+        return self._principal(row) if row else None
+
+    def create_workspace(
+        self, workspace_id: str, name: str, initial_admin_principal_id: str
+    ) -> WorkspaceRecord:
+        if self._tenant_id() != workspace_id:
+            raise RuntimeError("Workspace creation requires matching database context")
+        row = Workspace(id=workspace_id, name=name)
         self.session.add(row)
+        self.session.add(
+            WorkspaceMembership(
+                workspace_id=workspace_id,
+                principal_id=initial_admin_principal_id,
+                role="ADMIN",
+                active=True,
+            )
+        )
         self.session.flush()
         return self._workspace(row)
 
     def get_workspace(self, workspace_id: str) -> WorkspaceRecord | None:
         row = self.session.get(Workspace, workspace_id)
         return self._workspace(row) if row else None
+
+    def get_membership(self, principal_id: str) -> WorkspaceMembershipRecord | None:
+        row = self.session.get(WorkspaceMembership, (self._tenant_id(), principal_id))
+        return self._membership(row) if row else None
+
+    def create_membership(self, principal_id: str, role: str) -> WorkspaceMembershipRecord:
+        if self.get_membership(principal_id) is not None:
+            raise ConflictError("Workspace membership already exists")
+        row = WorkspaceMembership(
+            workspace_id=self._tenant_id(),
+            principal_id=principal_id,
+            role=role,
+            active=True,
+        )
+        self.session.add(row)
+        self.session.flush()
+        return self._membership(row)
+
+    def update_membership(
+        self, principal_id: str, role: str | None, active: bool | None
+    ) -> WorkspaceMembershipRecord:
+        row = self._required(
+            self.session.get(WorkspaceMembership, (self._tenant_id(), principal_id)),
+            "WorkspaceMembership",
+        )
+        if role is not None:
+            row.role = role
+        if active is not None:
+            row.active = active
+        self.session.flush()
+        return self._membership(row)
+
+    def list_memberships(self) -> list[WorkspaceMembershipRecord]:
+        rows = self.session.scalars(
+            select(WorkspaceMembership)
+            .where(WorkspaceMembership.workspace_id == self._tenant_id())
+            .order_by(WorkspaceMembership.created_at, WorkspaceMembership.principal_id)
+        )
+        return [self._membership(row) for row in rows]
 
     def create_document_bundle(
         self,
@@ -572,14 +656,14 @@ class SqlAlchemyStage1Repository:
         self,
         decision_id: str,
         approved_at: datetime,
-        reviewer_subject: str,
+        reviewer_principal_id: str,
         comment: str,
         review_mode: str,
     ) -> DecisionRecord:
         row = self._required(self._get(ComplianceDecision, decision_id), "ComplianceDecision")
         row.status = "APPROVED"
         row.approved_at = approved_at
-        row.approved_by = reviewer_subject
+        row.approved_by_principal_id = reviewer_principal_id
         self.session.add(
             HumanReview(
                 workspace_id=self._tenant_id(),
@@ -587,7 +671,33 @@ class SqlAlchemyStage1Repository:
                 risk=row.risk,
                 mode=review_mode,
                 status="APPROVED",
-                reviewer_subject=reviewer_subject,
+                reviewer_principal_id=reviewer_principal_id,
+                comment=comment,
+            )
+        )
+        self.session.flush()
+        return self._decision(row)
+
+    def record_decision_review(
+        self,
+        decision_id: str,
+        *,
+        decision_status: str,
+        review_status: str,
+        reviewer_principal_id: str,
+        comment: str,
+        review_mode: str,
+    ) -> DecisionRecord:
+        row = self._required(self._get(ComplianceDecision, decision_id), "ComplianceDecision")
+        row.status = decision_status
+        self.session.add(
+            HumanReview(
+                workspace_id=self._tenant_id(),
+                decision_id=row.id,
+                risk=row.risk,
+                mode=review_mode,
+                status=review_status,
+                reviewer_principal_id=reviewer_principal_id,
                 comment=comment,
             )
         )
@@ -747,7 +857,28 @@ class SqlAlchemyStage1Repository:
 
     @staticmethod
     def _workspace(row: Workspace) -> WorkspaceRecord:
-        return WorkspaceRecord(row.id, row.name, row.access_token_hash)
+        return WorkspaceRecord(row.id, row.name)
+
+    @staticmethod
+    def _principal(row: Principal) -> PrincipalRecord:
+        return PrincipalRecord(
+            row.id,
+            row.issuer,
+            row.subject,
+            row.principal_type,
+            row.active,
+            row.created_at,
+        )
+
+    @staticmethod
+    def _membership(row: WorkspaceMembership) -> WorkspaceMembershipRecord:
+        return WorkspaceMembershipRecord(
+            row.workspace_id,
+            row.principal_id,
+            row.role,
+            row.active,
+            row.created_at,
+        )
 
     @staticmethod
     def _document_version(row: DocumentVersion) -> DocumentVersionRecord:
@@ -881,7 +1012,7 @@ class SqlAlchemyStage1Repository:
             row.assessment_as_of,
             row.status,
             row.approved_at,
-            row.approved_by,
+            row.approved_by_principal_id,
             row.revision,
         )
 

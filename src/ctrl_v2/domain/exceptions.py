@@ -16,3 +16,7 @@ class InvariantViolation(DomainError):
 
 class AuthenticationError(DomainError):
     pass
+
+
+class AuthorizationError(DomainError):
+    pass

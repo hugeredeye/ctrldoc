@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 
 from ctrl_v2.interfaces.http.app import create_app
 from ctrl_v2.interfaces.http.config import Settings
@@ -75,7 +75,7 @@ ROW_QUERIES = {
     "compliance_decisions": """
         SELECT workspace_id, id, requirement_id, product_version_id, mapping_id,
                outcome, rationale, confidence, risk, assessment_as_of, status,
-               approved_by, revision
+               {approved_actor} AS approved_actor, revision
         FROM compliance_decisions ORDER BY workspace_id, id
     """,
     "responses": """
@@ -104,6 +104,15 @@ def snapshot(database_url: str) -> dict[str, Any]:
     try:
         with engine.connect() as connection:
             revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
+            decision_columns = {
+                column["name"]
+                for column in inspect(connection).get_columns("compliance_decisions")
+            }
+            approved_actor = (
+                "approved_by_principal_id"
+                if "approved_by_principal_id" in decision_columns
+                else "approved_by"
+            )
             counts = {
                 table: int(connection.scalar(text(f'SELECT count(*) FROM "{table}"')) or 0)
                 for table in SNAPSHOT_TABLES
@@ -111,7 +120,9 @@ def snapshot(database_url: str) -> dict[str, Any]:
             records = {
                 name: [
                     {key: _json_value(value) for key, value in row.items()}
-                    for row in connection.execute(text(query)).mappings()
+                    for row in connection.execute(
+                        text(query.format(approved_actor=approved_actor))
+                    ).mappings()
                 ]
                 for name, query in ROW_QUERIES.items()
             }
@@ -135,17 +146,21 @@ def seed() -> None:
             object_storage_root=object_storage_root,
             create_schema=False,
             log_level="WARNING",
+            environment="test",
+            auth_mode="dev",
+            dev_auth_enabled=True,
+            provisioning_principals={"urn:ctrl-v2:development|operator"},
         )
     )
     with TestClient(app) as client:
         primary = Journey(client, "Rehearsal Primary")
         primary_state = primary.build_until_decision()
+        approval_body = {"comment": "Approved before database hardening"}
+        if "access_token" in primary.workspace:
+            approval_body["reviewer_subject"] = "upgrade-rehearsal@example.test"
         approval = primary.post(
             f"/compliance-decisions/{primary_state['decision']['id']}/approve",
-            json={
-                "reviewer_subject": "upgrade-rehearsal@example.test",
-                "comment": "Approved before database hardening",
-            },
+            json=approval_body,
         )
         assert approval.status_code == 200, approval.text
         response = primary.post(

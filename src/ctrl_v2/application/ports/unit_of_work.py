@@ -17,6 +17,7 @@ from ctrl_v2.application.records import (
     EvidenceSpanRecord,
     ExportRecord,
     MappingRecord,
+    PrincipalRecord,
     ProductRecord,
     ProductVersionRecord,
     RepresentationRecord,
@@ -24,14 +25,35 @@ from ctrl_v2.application.records import (
     ResponseRecord,
     RfpRecord,
     SnapshotItemRecord,
+    WorkspaceMembershipRecord,
     WorkspaceRecord,
 )
 
 
 class Stage1Repository(Protocol):
-    def create_workspace(self, name: str, access_token_hash: str) -> WorkspaceRecord: ...
+    def get_or_create_principal(
+        self, issuer: str, subject: str, principal_type: str
+    ) -> PrincipalRecord: ...
+
+    def get_principal(self, principal_id: str) -> PrincipalRecord | None: ...
+
+    def create_workspace(
+        self, workspace_id: str, name: str, initial_admin_principal_id: str
+    ) -> WorkspaceRecord: ...
 
     def get_workspace(self, workspace_id: str) -> WorkspaceRecord | None: ...
+
+    def get_membership(self, principal_id: str) -> WorkspaceMembershipRecord | None: ...
+
+    def create_membership(
+        self, principal_id: str, role: str
+    ) -> WorkspaceMembershipRecord: ...
+
+    def update_membership(
+        self, principal_id: str, role: str | None, active: bool | None
+    ) -> WorkspaceMembershipRecord: ...
+
+    def list_memberships(self) -> list[WorkspaceMembershipRecord]: ...
 
     def create_document_bundle(
         self,
@@ -192,7 +214,18 @@ class Stage1Repository(Protocol):
         self,
         decision_id: str,
         approved_at: datetime,
-        reviewer_subject: str,
+        reviewer_principal_id: str,
+        comment: str,
+        review_mode: str,
+    ) -> DecisionRecord: ...
+
+    def record_decision_review(
+        self,
+        decision_id: str,
+        *,
+        decision_status: str,
+        review_status: str,
+        reviewer_principal_id: str,
         comment: str,
         review_mode: str,
     ) -> DecisionRecord: ...

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
-import secrets
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from io import BytesIO
@@ -27,8 +25,9 @@ from ctrl_v2.domain.enums import (
     EvidenceAuthorityLevel,
     ReviewMode,
     ReviewRisk,
+    ReviewStatus,
 )
-from ctrl_v2.domain.exceptions import AuthenticationError, ConflictError, NotFoundError
+from ctrl_v2.domain.exceptions import ConflictError, NotFoundError
 from ctrl_v2.domain.models import (
     DecisionApprovalCandidate,
     EvidenceBasis,
@@ -46,10 +45,6 @@ def _new_id() -> str:
 
 def _hash(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
-
-
-def _token_hash(value: str) -> str:
-    return _hash(value.encode("utf-8"))
 
 
 def _canonical_json(value: object) -> bytes:
@@ -88,20 +83,16 @@ class Stage1Workflow:
             valid_to is None or value <= valid_to
         )
 
-    def create_workspace(self, name: str) -> dict[str, Any]:
-        token = secrets.token_urlsafe(32)
-        with self.uow_factory(None) as uow:
-            workspace = uow.repo.create_workspace(name, _token_hash(token))
+    def create_workspace(self, name: str, initial_admin_principal_id: str) -> dict[str, Any]:
+        workspace_id = _new_id()
+        with self.uow_factory(workspace_id) as uow:
+            workspace = uow.repo.create_workspace(
+                workspace_id,
+                name,
+                initial_admin_principal_id,
+            )
             uow.commit()
-        return {"id": workspace.id, "name": workspace.name, "access_token": token}
-
-    def authenticate(self, workspace_id: str, token: str) -> None:
-        with self.uow_factory(None) as uow:
-            workspace = uow.repo.get_workspace(workspace_id)
-        if workspace is None or not hmac.compare_digest(
-            workspace.access_token_hash, _token_hash(token)
-        ):
-            raise AuthenticationError("Workspace is not accessible")
+        return {"id": workspace.id, "name": workspace.name}
 
     def upload_document(
         self,
@@ -554,12 +545,18 @@ class Stage1Workflow:
         self,
         workspace_id: str,
         decision_id: str,
-        reviewer_subject: str,
+        reviewer_principal_id: str,
         comment: str,
         mode: ReviewMode = ReviewMode.SINGLE,
     ) -> dict[str, Any]:
         with self.uow_factory(workspace_id) as uow:
-            decision = self._approve(uow.repo, decision_id, reviewer_subject, comment, mode)
+            decision = self._approve(
+                uow.repo,
+                decision_id,
+                reviewer_principal_id,
+                comment,
+                mode,
+            )
             span_ids = uow.repo.list_decision_span_ids(decision_id)
             uow.commit()
         return self._decision_dict(workspace_id, decision, span_ids)
@@ -568,7 +565,7 @@ class Stage1Workflow:
         self,
         workspace_id: str,
         decision_ids: list[str],
-        reviewer_subject: str,
+        reviewer_principal_id: str,
         comment: str,
     ) -> list[dict[str, Any]]:
         with self.uow_factory(workspace_id) as uow:
@@ -581,7 +578,7 @@ class Stage1Workflow:
                     self._approve(
                         uow.repo,
                         decision_id,
-                        reviewer_subject,
+                        reviewer_principal_id,
                         comment,
                         ReviewMode.BATCH,
                     )
@@ -589,11 +586,69 @@ class Stage1Workflow:
             uow.commit()
         return [self._decision_dict(workspace_id, item, []) for item in approved]
 
+    def reject_decision(
+        self,
+        workspace_id: str,
+        decision_id: str,
+        reviewer_principal_id: str,
+        comment: str,
+    ) -> dict[str, Any]:
+        return self._record_review(
+            workspace_id,
+            decision_id,
+            reviewer_principal_id,
+            comment,
+            decision_status=DecisionStatus.REJECTED,
+            review_status=ReviewStatus.REJECTED,
+        )
+
+    def escalate_decision(
+        self,
+        workspace_id: str,
+        decision_id: str,
+        reviewer_principal_id: str,
+        comment: str,
+    ) -> dict[str, Any]:
+        return self._record_review(
+            workspace_id,
+            decision_id,
+            reviewer_principal_id,
+            comment,
+            decision_status=DecisionStatus.IN_REVIEW,
+            review_status=ReviewStatus.ESCALATED,
+        )
+
+    def _record_review(
+        self,
+        workspace_id: str,
+        decision_id: str,
+        reviewer_principal_id: str,
+        comment: str,
+        *,
+        decision_status: DecisionStatus,
+        review_status: ReviewStatus,
+    ) -> dict[str, Any]:
+        with self.uow_factory(workspace_id) as uow:
+            decision = _required(uow.repo.get_decision(decision_id), "ComplianceDecision")
+            if decision.status == DecisionStatus.APPROVED.value:
+                raise ConflictError("An approved decision is immutable")
+            decision = uow.repo.record_decision_review(
+                decision_id,
+                decision_status=decision_status.value,
+                review_status=review_status.value,
+                reviewer_principal_id=reviewer_principal_id,
+                comment=comment,
+                review_mode=ReviewMode.SINGLE.value,
+            )
+            span_ids = uow.repo.list_decision_span_ids(decision_id)
+            uow.commit()
+        return self._decision_dict(workspace_id, decision, span_ids)
+
     @staticmethod
     def _approve(
         repo: Stage1Repository,
         decision_id: str,
-        reviewer_subject: str,
+        reviewer_principal_id: str,
         comment: str,
         mode: ReviewMode,
     ) -> DecisionRecord:
@@ -619,7 +674,7 @@ class Stage1Workflow:
         return repo.approve_decision(
             decision_id,
             approved_at=datetime.now(UTC),
-            reviewer_subject=reviewer_subject,
+            reviewer_principal_id=reviewer_principal_id,
             comment=comment,
             review_mode=mode.value,
         )
@@ -694,7 +749,7 @@ class Stage1Workflow:
             "outcome": decision.outcome,
             "rationale": decision.rationale,
             "risk": decision.risk,
-            "approved_by": decision.approved_by,
+            "approved_by": decision.approved_by_principal_id,
             "approved_at": decision.approved_at.isoformat() if decision.approved_at else "",
             "evidence": [
                 {
@@ -767,6 +822,7 @@ class Stage1Workflow:
             "risk": decision.risk,
             "assessment_as_of": decision.assessment_as_of,
             "status": decision.status,
+            "approved_by_principal_id": decision.approved_by_principal_id,
             "evidence_span_ids": list(span_ids),
             "revision": decision.revision,
         }

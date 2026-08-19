@@ -9,6 +9,7 @@ from ctrl_v2.domain.enums import (
     DocumentKind,
     EvidenceAuthorityLevel,
     EvidenceSourceType,
+    WorkspaceRole,
 )
 
 
@@ -103,12 +104,25 @@ class DecisionUpdate(ApiModel):
 
 
 class ApprovalCreate(ApiModel):
-    reviewer_subject: str = Field(min_length=1, max_length=200)
     comment: str = ""
 
 
 class BatchApprovalCreate(ApprovalCreate):
     decision_ids: list[str] = Field(min_length=1)
+
+
+class MembershipCreate(ApiModel):
+    principal_id: str
+    role: WorkspaceRole
+
+
+class MembershipUpdate(ApiModel):
+    role: WorkspaceRole | None = None
+    active: bool | None = None
+
+
+class ReviewCreate(ApiModel):
+    comment: str = ""
 
 
 class ResponseCreate(ApiModel):

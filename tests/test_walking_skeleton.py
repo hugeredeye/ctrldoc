@@ -3,13 +3,14 @@ from __future__ import annotations
 import hashlib
 import logging
 
+from tests.auth_helpers import dev_auth
 from tests.helpers import Journey
 
 
 def approve(journey: Journey, decision_id: str):
     return journey.post(
         f"/compliance-decisions/{decision_id}/approve",
-        json={"reviewer_subject": "reviewer@example.test", "comment": "Verified"},
+        json={"comment": "Verified"},
     )
 
 
@@ -68,7 +69,6 @@ def test_low_risk_decision_supports_batch_final_approval(client):
         "/compliance-decisions/batch-approve",
         json={
             "decision_ids": [state["decision"]["id"]],
-            "reviewer_subject": "batch-reviewer@example.test",
             "comment": "Strong non-conflicting evidence",
         },
     )
@@ -81,14 +81,20 @@ def test_cross_workspace_access_is_impossible(client):
     first = Journey(client, "First")
     second = Journey(client, "Second")
     document = second.upload("Second workspace only", "RFP", "private.xlsx")
+    principal = client.get("/api/v1/me", headers=dev_auth("first-only")).json()
+    membership = first.post(
+        "/memberships",
+        json={"principal_id": principal["id"], "role": "VIEWER"},
+    )
+    assert membership.status_code == 201, membership.text
 
     response = client.get(
         f"/api/v1/workspaces/{second.workspace_id}/document-versions/"
         f"{document['document_version_id']}/content",
-        headers=first.headers,
+        headers=dev_auth("first-only"),
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
     assert b"Second workspace only" not in response.content
 
 
@@ -139,7 +145,7 @@ def test_approved_decision_is_immutable(client):
     assert "immutable" in changed.json()["detail"]
 
 
-def test_document_content_and_workspace_secret_are_not_logged(client, caplog):
+def test_document_content_and_authorization_are_not_logged(client, caplog):
     caplog.set_level(logging.INFO)
     journey = Journey(client)
     marker = "CONFIDENTIAL-DOCUMENT-MARKER-74815"
@@ -148,4 +154,4 @@ def test_document_content_and_workspace_secret_are_not_logged(client, caplog):
 
     rendered_logs = caplog.text
     assert marker not in rendered_logs
-    assert journey.workspace["access_token"] not in rendered_logs
+    assert journey.headers["Authorization"] not in rendered_logs

@@ -6,6 +6,18 @@ class LifecycleStatus(StrEnum):
     ARCHIVED = "ARCHIVED"
 
 
+class PrincipalType(StrEnum):
+    USER = "USER"
+    SERVICE = "SERVICE"
+
+
+class WorkspaceRole(StrEnum):
+    VIEWER = "VIEWER"
+    EDITOR = "EDITOR"
+    APPROVER = "APPROVER"
+    ADMIN = "ADMIN"
+
+
 class DocumentKind(StrEnum):
     RFP = "RFP"
     PRODUCT_KNOWLEDGE = "PRODUCT_KNOWLEDGE"
@@ -84,6 +96,7 @@ class ReviewStatus(StrEnum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    ESCALATED = "ESCALATED"
 
 
 class ReviewMode(StrEnum):

@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -32,13 +33,47 @@ class Base(DeclarativeBase):
     type_annotation_map = {dict[str, Any]: JSON, list[Any]: JSON}
 
 
+class Principal(Base):
+    __tablename__ = "principals"
+    __table_args__ = (
+        UniqueConstraint("issuer", "subject"),
+        CheckConstraint("principal_type IN ('USER', 'SERVICE')", name="principal_type_valid"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    issuer: Mapped[str] = mapped_column(String(500))
+    subject: Mapped[str] = mapped_column(String(500))
+    principal_type: Mapped[str] = mapped_column(String(20))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Workspace(Base):
     __tablename__ = "workspaces"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     name: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
-    access_token_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WorkspaceMembership(Base):
+    __tablename__ = "workspace_memberships"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('VIEWER', 'EDITOR', 'APPROVER', 'ADMIN')",
+            name="workspace_membership_role_valid",
+        ),
+    )
+
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+    principal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("principals.id", ondelete="CASCADE"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(20))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -407,7 +442,9 @@ class ComplianceDecision(WorkspaceEntity, Base):
     scope_valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="DRAFT")
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    approved_by_principal_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("principals.id"), nullable=True
+    )
     supersedes_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, default=1)
 
@@ -464,7 +501,9 @@ class HumanReview(WorkspaceEntity, Base):
     risk: Mapped[str] = mapped_column(String(20))
     mode: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(32))
-    reviewer_subject: Mapped[str] = mapped_column(String(200))
+    reviewer_principal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("principals.id"), nullable=False
+    )
     comment: Mapped[str] = mapped_column(Text, default="")
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

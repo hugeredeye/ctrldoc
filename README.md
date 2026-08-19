@@ -14,7 +14,8 @@ are deliberately represented only by versioned contracts/ports. They are not imp
 ## Local setup
 
 1. Set `POSTGRES_ADMIN_PASSWORD`, `POSTGRES_MIGRATOR_PASSWORD`,
-   `POSTGRES_RUNTIME_PASSWORD`, `DATABASE_URL`, and `OBJECT_STORAGE_ROOT` in the local
+   `POSTGRES_RUNTIME_PASSWORD`, `DATABASE_URL`, `OBJECT_STORAGE_ROOT`, and the authentication
+   configuration in the local
    environment. The API `DATABASE_URL` must use `ctrl_v2_runtime`. For the separate Alembic
    process only, set `DATABASE_URL` to `ctrl_v2_migrator`; never expose that URL to the API.
 2. Start PostgreSQL with `docker compose up -d postgres`.
@@ -30,9 +31,15 @@ complete Alembic history as `ctrl_v2_migrator`, and exercise the application as
 Uploaded documents and exports are held behind `ObjectStorage`; the local adapter writes to a
 private runtime directory that FastAPI never mounts as static content.
 
-Workspace creation returns a high-entropy access token once. It is stored only as a SHA-256
-digest and is a deliberately small Stage 1 authentication adapter, not the future identity/RBAC
-model.
+Production authentication validates signed OIDC tokens against an explicit issuer, audience and
+JWKS trust boundary. Verified issuer/subject pairs resolve to persisted principals; every
+workspace operation additionally requires an active membership with the necessary role. The
+explicit development bypass is rejected whenever `ENVIRONMENT=production`.
+
+Existing pre-authentication workspaces receive no implicit membership during migration. A
+configured provisioning operator may use the one-time `bootstrap-admin` operation only while the
+workspace has no active administrator; new workspaces automatically make their operator creator
+the initial administrator.
 
 Evaluation gold cases are always manually curated. See `evaluations/README.md`; the authoring CLI
 can initialize, validate, and append reviewed cases, but cannot synthesize them.

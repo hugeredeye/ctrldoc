@@ -149,6 +149,10 @@ def _runtime_app(postgres_urls: PostgreSQLTestUrls, tmp_path):
         Settings(
             database_url=postgres_urls.runtime,
             object_storage_root=tmp_path / "private-objects",
+            environment="test",
+            auth_mode="dev",
+            dev_auth_enabled=True,
+            provisioning_principals={"urn:ctrl-v2:development|operator"},
         )
     )
 
@@ -164,7 +168,7 @@ def test_wrong_alembic_revision_fails_startup(postgres_urls, tmp_path):
     finally:
         with admin_engine.begin() as connection:
             connection.execute(
-                text("UPDATE alembic_version SET version_num = '8d4f2a1c7b90'")
+                text("UPDATE alembic_version SET version_num = 'c7a0e11f6b42'")
             )
         admin_engine.dispose()
 

@@ -22,7 +22,7 @@ def _set_workspace(connection: Any, workspace_id: str) -> None:
 def _approve(journey: Journey, decision_id: str):
     return journey.post(
         f"/compliance-decisions/{decision_id}/approve",
-        json={"reviewer_subject": "pg-reviewer@example.test", "comment": "PG validated"},
+        json={"comment": "PG validated"},
     )
 
 
@@ -51,12 +51,12 @@ def test_alembic_migration_on_clean_postgresql(postgresql_url: str):
                     "WHERE rolname = current_user"
                 )
             ).one()
-        assert revision == "8d4f2a1c7b90"
+        assert revision == "c7a0e11f6b42"
         assert role.current_user == "ctrl_v2_runtime"
         assert role.rolsuper is False
         assert role.rolbypassrls is False
-        assert len(inspect(engine).get_table_names()) == 28
-        assert policies == 26
+        assert len(inspect(engine).get_table_names()) == 30
+        assert policies == 27
         assert triggers == {
             "document_versions_immutable",
             "approved_decisions_immutable",
@@ -130,10 +130,13 @@ def test_deferred_approved_positive_decision_requires_evidence_span(
     try:
         _set_workspace(connection, journey.workspace_id)
         connection.execute(
-            text(
-                "UPDATE compliance_decisions SET outcome = :outcome, status = 'APPROVED' "
-                "WHERE workspace_id = :workspace_id AND id = :decision_id"
-            ),
+                text(
+                    "UPDATE compliance_decisions SET outcome = :outcome, status = 'APPROVED', "
+                    "approved_by_principal_id = ("
+                    "SELECT id FROM principals WHERE issuer = 'urn:ctrl-v2:development' "
+                    "AND subject = 'operator') "
+                    "WHERE workspace_id = :workspace_id AND id = :decision_id"
+                ),
             {
                 "outcome": outcome,
                 "workspace_id": journey.workspace_id,
