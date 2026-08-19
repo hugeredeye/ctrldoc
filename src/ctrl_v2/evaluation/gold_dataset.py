@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
@@ -38,6 +40,36 @@ class HardNegativeErrorTag(StrEnum):
     CONFLICTING_EVIDENCE = "CONFLICTING_EVIDENCE"
     TEMPORAL_VALIDITY = "TEMPORAL_VALIDITY"
     SOURCE_AUTHORITY = "SOURCE_AUTHORITY"
+    RELATED_FEATURE_MISSING_CAPABILITY = "RELATED_FEATURE_MISSING_CAPABILITY"
+    SAME_TERMINOLOGY_DIFFERENT_SEMANTICS = "SAME_TERMINOLOGY_DIFFERENT_SEMANTICS"
+    INSUFFICIENT_QUANTITATIVE_LIMIT = "INSUFFICIENT_QUANTITATIVE_LIMIT"
+    LOWER_AUTHORITY_CONTRADICTION = "LOWER_AUTHORITY_CONTRADICTION"
+    PARTIAL_COMPOUND_EVIDENCE = "PARTIAL_COMPOUND_EVIDENCE"
+    PREVIOUS_RESPONSE_UNVERIFIED = "PREVIOUS_RESPONSE_UNVERIFIED"
+
+
+class RequirementLanguage(StrEnum):
+    RU = "RU"
+    EN = "EN"
+    MIXED = "MIXED"
+    OTHER = "OTHER"
+
+
+class BenchmarkSourceCategory(StrEnum):
+    PRODUCT_DOCUMENTATION = "PRODUCT_DOCUMENTATION"
+    CERTIFICATION_OR_TEST = "CERTIFICATION_OR_TEST"
+    RELEASE_OR_ROADMAP = "RELEASE_OR_ROADMAP"
+    RFP_OR_TENDER = "RFP_OR_TENDER"
+    PREVIOUS_APPROVED_RESPONSE = "PREVIOUS_APPROVED_RESPONSE"
+    INTERNAL_KNOWLEDGE = "INTERNAL_KNOWLEDGE"
+    OTHER = "OTHER"
+
+
+class AnnotationReviewStatus(StrEnum):
+    DRAFT = "DRAFT"
+    REVIEWED = "REVIEWED"
+    ADJUDICATED = "ADJUDICATED"
+    FROZEN = "FROZEN"
 
 
 class GoldModel(BaseModel):
@@ -69,9 +101,12 @@ class GoldAtomicRequirement(GoldModel):
     source_start_offset: int = Field(ge=0)
     source_end_offset: int = Field(gt=0)
     modality: str = Field(min_length=1)
+    language: RequirementLanguage | None = None
 
     @model_validator(mode="after")
     def validate_offsets(self) -> GoldAtomicRequirement:
+        if not self.atomic_text.strip():
+            raise ValueError("atomic_text cannot be blank")
         if self.source_end_offset <= self.source_start_offset:
             raise ValueError("source_end_offset must be greater than source_start_offset")
         return self
@@ -112,6 +147,78 @@ class GoldHardNegativeEvidence(GoldEvidenceSpan):
     error_tags: tuple[HardNegativeErrorTag, ...] = ()
 
 
+class GoldIndependentReview(GoldModel):
+    status: AnnotationReviewStatus = AnnotationReviewStatus.DRAFT
+    reviewer_alias: str | None = None
+    reviewed_at: datetime | None = None
+    disagreement: str | None = None
+    adjudicator_alias: str | None = None
+    adjudicated_at: datetime | None = None
+    adjudication_note: str | None = None
+    frozen_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_lifecycle(self) -> GoldIndependentReview:
+        text_fields = {
+            "reviewer_alias": self.reviewer_alias,
+            "disagreement": self.disagreement,
+            "adjudicator_alias": self.adjudicator_alias,
+            "adjudication_note": self.adjudication_note,
+        }
+        blank = sorted(
+            name for name, value in text_fields.items() if value is not None and not value.strip()
+        )
+        if blank:
+            raise ValueError(f"review text fields cannot be blank: {blank}")
+        review_fields = (self.reviewer_alias, self.reviewed_at)
+        adjudication_fields = (
+            self.adjudicator_alias,
+            self.adjudicated_at,
+            self.adjudication_note,
+        )
+        if self.status == AnnotationReviewStatus.DRAFT:
+            if any(value is not None for value in (*review_fields, *adjudication_fields)):
+                raise ValueError("DRAFT review cannot contain review or adjudication records")
+            if self.frozen_at is not None or self.disagreement is not None:
+                raise ValueError("DRAFT review cannot contain disagreement or freeze records")
+            return self
+        if any(value is None for value in review_fields):
+            raise ValueError(f"{self.status.value} requires reviewer_alias and reviewed_at")
+        if self.status == AnnotationReviewStatus.REVIEWED:
+            has_adjudication = any(value is not None for value in adjudication_fields)
+            if has_adjudication or self.frozen_at is not None:
+                raise ValueError("REVIEWED cannot contain adjudication or freeze records")
+            return self
+        if self.status == AnnotationReviewStatus.ADJUDICATED:
+            if not self.disagreement or not self.disagreement.strip():
+                raise ValueError("ADJUDICATED requires a recorded disagreement")
+            if any(value is None for value in adjudication_fields):
+                raise ValueError("ADJUDICATED requires adjudicator, time, and note")
+            if self.frozen_at is not None:
+                raise ValueError("ADJUDICATED cannot contain frozen_at")
+            return self
+        if self.frozen_at is None:
+            raise ValueError("FROZEN requires frozen_at")
+        if self.disagreement and any(value is None for value in adjudication_fields):
+            raise ValueError("FROZEN disagreement requires complete adjudication")
+        if not self.disagreement and any(value is not None for value in adjudication_fields):
+            raise ValueError("FROZEN adjudication requires a recorded disagreement")
+        return self
+
+
+class GoldBenchmarkGrouping(GoldModel):
+    document_family: str = Field(min_length=1)
+    source_case_family: str = Field(min_length=1)
+    product_family: str | None = None
+    product_version_family: str | None = None
+
+
+class GoldBenchmarkCaseMetadata(GoldModel):
+    source_category: BenchmarkSourceCategory
+    grouping: GoldBenchmarkGrouping
+    review: GoldIndependentReview = Field(default_factory=GoldIndependentReview)
+
+
 class GoldAnnotation(GoldModel):
     annotator: str = Field(min_length=1)
     annotation_version: str = Field(min_length=1)
@@ -138,11 +245,12 @@ class GoldCase(GoldModel):
     source_requirement: GoldSourceRequirement
     annotation: GoldAnnotation
     provenance: GoldProvenance
+    benchmark: GoldBenchmarkCaseMetadata | None = None
     gold_atomic_requirements: tuple[GoldAtomicRequirement, ...] = Field(min_length=1)
     gold_mappings: tuple[GoldMapping, ...]
     gold_evidence_spans: tuple[GoldEvidenceSpan, ...]
     hard_negative_evidence: tuple[GoldHardNegativeEvidence, ...] = ()
-    gold_compliance_outcomes: tuple[GoldComplianceOutcome, ...] = Field(min_length=1)
+    gold_compliance_outcomes: tuple[GoldComplianceOutcome, ...] = ()
 
     @model_validator(mode="after")
     def validate_references(self) -> GoldCase:
@@ -169,12 +277,9 @@ class GoldCase(GoldModel):
         unknown = referenced_atomic_keys - atomic_keys
         if unknown:
             raise ValueError(f"gold records reference unknown atomic keys: {sorted(unknown)}")
-        outcome_keys = {item.atomic_requirement_key for item in self.gold_compliance_outcomes}
-        missing_outcomes = atomic_keys - outcome_keys
-        if missing_outcomes:
-            raise ValueError(
-                f"gold compliance outcome is missing for atomic keys: {sorted(missing_outcomes)}"
-            )
+        outcome_keys = [item.atomic_requirement_key for item in self.gold_compliance_outcomes]
+        if len(outcome_keys) != len(set(outcome_keys)):
+            raise ValueError("gold compliance outcomes must be unique per atomic requirement")
         positive_keys = {item.key for item in self.gold_evidence_spans if item.key is not None}
         hard_negative_keys = {
             item.key for item in self.hard_negative_evidence if item.key is not None
@@ -184,6 +289,15 @@ class GoldCase(GoldModel):
             raise ValueError(
                 f"evidence cannot be both positive and hard-negative: {sorted(overlap)}"
             )
+        positive_content = {
+            evidence_span_content_identity(item) for item in self.gold_evidence_spans
+        }
+        hard_negative_content = {
+            evidence_span_content_identity(item) for item in self.hard_negative_evidence
+        }
+        content_overlap = positive_content & hard_negative_content
+        if content_overlap:
+            raise ValueError("the same evidence content cannot be positive and hard-negative")
         return self
 
 
@@ -204,7 +318,51 @@ class GoldDataset(GoldModel):
             raise ValueError("gold case IDs must be unique")
         if self.scope == DatasetScope.CHECKED_IN_TEST and self.contains_customer_data:
             raise ValueError("checked-in evaluation fixtures cannot contain customer data")
+        evidence_keys: list[str] = []
+        evidence_content: list[str] = []
+        for case in self.cases:
+            for span in (*case.gold_evidence_spans, *case.hard_negative_evidence):
+                if span.key is not None:
+                    evidence_keys.append(span.key)
+                evidence_content.append(evidence_span_content_identity(span))
+        if len(evidence_keys) != len(set(evidence_keys)):
+            raise ValueError("EvidenceSpan keys must be unique across the dataset")
+        if len(evidence_content) != len(set(evidence_content)):
+            raise ValueError("EvidenceSpan provenance/content identities must be unique")
         return self
+
+
+def evidence_span_content_identity(span: GoldEvidenceSpan) -> str:
+    payload = json.dumps(
+        {
+            "asset_path": span.asset_path,
+            "document_key": span.document_key,
+            "document_version": span.document_version,
+            "exact_quote": span.exact_quote,
+            "locator": span.locator.model_dump(mode="json"),
+            "product_version_key": span.product_version_key,
+            "source_sha256": span.source_sha256,
+            "valid_from": span.valid_from.isoformat(),
+            "valid_to": span.valid_to.isoformat() if span.valid_to else None,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def assert_no_prohibited_identifier_fields(value: object, path: str = "$") -> None:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            normalized = str(key).casefold()
+            nested_path = f"{path}.{key}"
+            if normalized in _PROHIBITED_PROVENANCE_KEYS:
+                raise ValueError(f"forbidden benchmark identifier field at {nested_path}")
+            assert_no_prohibited_identifier_fields(nested, nested_path)
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            assert_no_prohibited_identifier_fields(nested, f"{path}[{index}]")
 
 
 def assert_checked_in_fixture(dataset: GoldDataset) -> None:
@@ -212,19 +370,4 @@ def assert_checked_in_fixture(dataset: GoldDataset) -> None:
         raise ValueError("checked-in fixture must declare CHECKED_IN_TEST scope")
     if dataset.contains_customer_data:
         raise ValueError("checked-in fixture cannot contain customer data")
-    serialized = dataset.model_dump(mode="json")
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            prohibited = _PROHIBITED_PROVENANCE_KEYS & {str(key).casefold() for key in value}
-            if prohibited:
-                raise ValueError(
-                    f"checked-in fixture contains tenant identifiers: {sorted(prohibited)}"
-                )
-            for nested in value.values():
-                visit(nested)
-        elif isinstance(value, list):
-            for nested in value:
-                visit(nested)
-
-    visit(serialized)
+    assert_no_prohibited_identifier_fields(dataset.model_dump(mode="json"))

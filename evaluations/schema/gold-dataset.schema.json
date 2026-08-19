@@ -1,5 +1,28 @@
 {
   "$defs": {
+    "AnnotationReviewStatus": {
+      "enum": [
+        "DRAFT",
+        "REVIEWED",
+        "ADJUDICATED",
+        "FROZEN"
+      ],
+      "title": "AnnotationReviewStatus",
+      "type": "string"
+    },
+    "BenchmarkSourceCategory": {
+      "enum": [
+        "PRODUCT_DOCUMENTATION",
+        "CERTIFICATION_OR_TEST",
+        "RELEASE_OR_ROADMAP",
+        "RFP_OR_TENDER",
+        "PREVIOUS_APPROVED_RESPONSE",
+        "INTERNAL_KNOWLEDGE",
+        "OTHER"
+      ],
+      "title": "BenchmarkSourceCategory",
+      "type": "string"
+    },
     "DatasetScope": {
       "enum": [
         "CHECKED_IN_TEST",
@@ -146,6 +169,17 @@
           "title": "Key",
           "type": "string"
         },
+        "language": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RequirementLanguage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "modality": {
           "minLength": 1,
           "title": "Modality",
@@ -178,11 +212,87 @@
       "title": "GoldAtomicRequirement",
       "type": "object"
     },
+    "GoldBenchmarkCaseMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "grouping": {
+          "$ref": "#/$defs/GoldBenchmarkGrouping"
+        },
+        "review": {
+          "$ref": "#/$defs/GoldIndependentReview"
+        },
+        "source_category": {
+          "$ref": "#/$defs/BenchmarkSourceCategory"
+        }
+      },
+      "required": [
+        "source_category",
+        "grouping"
+      ],
+      "title": "GoldBenchmarkCaseMetadata",
+      "type": "object"
+    },
+    "GoldBenchmarkGrouping": {
+      "additionalProperties": false,
+      "properties": {
+        "document_family": {
+          "minLength": 1,
+          "title": "Document Family",
+          "type": "string"
+        },
+        "product_family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Family"
+        },
+        "product_version_family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Version Family"
+        },
+        "source_case_family": {
+          "minLength": 1,
+          "title": "Source Case Family",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_family",
+        "source_case_family"
+      ],
+      "title": "GoldBenchmarkGrouping",
+      "type": "object"
+    },
     "GoldCase": {
       "additionalProperties": false,
       "properties": {
         "annotation": {
           "$ref": "#/$defs/GoldAnnotation"
+        },
+        "benchmark": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GoldBenchmarkCaseMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "case_id": {
           "minLength": 1,
@@ -204,10 +314,10 @@
           "type": "array"
         },
         "gold_compliance_outcomes": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/GoldComplianceOutcome"
           },
-          "minItems": 1,
           "title": "Gold Compliance Outcomes",
           "type": "array"
         },
@@ -248,8 +358,7 @@
         "provenance",
         "gold_atomic_requirements",
         "gold_mappings",
-        "gold_evidence_spans",
-        "gold_compliance_outcomes"
+        "gold_evidence_spans"
       ],
       "title": "GoldCase",
       "type": "object"
@@ -570,6 +679,104 @@
       "title": "GoldHardNegativeEvidence",
       "type": "object"
     },
+    "GoldIndependentReview": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudicated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudicated At"
+        },
+        "adjudication_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudication Note"
+        },
+        "adjudicator_alias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudicator Alias"
+        },
+        "disagreement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disagreement"
+        },
+        "frozen_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frozen At"
+        },
+        "reviewed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed At"
+        },
+        "reviewer_alias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer Alias"
+        },
+        "status": {
+          "$ref": "#/$defs/AnnotationReviewStatus",
+          "default": "DRAFT"
+        }
+      },
+      "title": "GoldIndependentReview",
+      "type": "object"
+    },
     "GoldMapping": {
       "additionalProperties": false,
       "properties": {
@@ -718,7 +925,13 @@
         "NON_ENTAILING",
         "CONFLICTING_EVIDENCE",
         "TEMPORAL_VALIDITY",
-        "SOURCE_AUTHORITY"
+        "SOURCE_AUTHORITY",
+        "RELATED_FEATURE_MISSING_CAPABILITY",
+        "SAME_TERMINOLOGY_DIFFERENT_SEMANTICS",
+        "INSUFFICIENT_QUANTITATIVE_LIMIT",
+        "LOWER_AUTHORITY_CONTRADICTION",
+        "PARTIAL_COMPOUND_EVIDENCE",
+        "PREVIOUS_RESPONSE_UNVERIFIED"
       ],
       "title": "HardNegativeErrorTag",
       "type": "string"
@@ -771,6 +984,16 @@
       ],
       "title": "PdfLocator",
       "type": "object"
+    },
+    "RequirementLanguage": {
+      "enum": [
+        "RU",
+        "EN",
+        "MIXED",
+        "OTHER"
+      ],
+      "title": "RequirementLanguage",
+      "type": "string"
     },
     "XlsxLocator": {
       "additionalProperties": false,

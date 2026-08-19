@@ -90,6 +90,28 @@ infer gold labels.
 No manually reviewed external dataset is present in this repository. Therefore real BM25-versus-
 neural retrieval quality is not yet established.
 
+## CTRL Gold Benchmark v1 authoring boundary
+
+Stage 2.3 adds strict external-benchmark validation, human review lifecycle, grouped deterministic
+DEV/TEST splitting, content-free manifests and diagnostics, and a hash-bound blind TEST protocol.
+It does not add benchmark content. The complete evidence annotation guide and first real benchmark
+procedure are in `docs/gold-benchmark-v1.md`.
+
+The checked split configuration groups connected document/source-case families instead of randomly
+splitting rows:
+
+```text
+python -m ctrl_v2.evaluation.authoring validate-benchmark <external-dataset.json>
+python -m ctrl_v2.evaluation.authoring diagnostics <external-dataset.json>
+python -m ctrl_v2.evaluation.authoring split <external-dataset.json> \
+  evaluations/config/gold-benchmark-split-v1.json <external-split-manifest.json>
+python -m ctrl_v2.evaluation.authoring manifest <external-dataset.json> \
+  <external-split-manifest.json> <external-benchmark-manifest.json>
+```
+
+External dataset and blind-result paths inside the repository must remain ignored and untracked.
+The tooling refuses to treat `CHECKED_IN_TEST` fixtures as the real benchmark.
+
 ## Stage 2.2 pinned neural experiment
 
 Install the isolated CPU research stack without changing production dependencies:

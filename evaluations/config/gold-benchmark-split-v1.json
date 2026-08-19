@@ -1,0 +1,11 @@
+{
+  "development_fraction": 0.5,
+  "group_fields": [
+    "DOCUMENT_FAMILY",
+    "SOURCE_CASE_FAMILY"
+  ],
+  "schema_version": "1.0",
+  "seed": 2301,
+  "strategy": "CONNECTED_SOURCE_GROUP_HASH_V1",
+  "train_fraction": 0.0
+}

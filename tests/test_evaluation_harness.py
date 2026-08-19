@@ -6,6 +6,7 @@ from pathlib import Path
 from ctrl_v2.evaluation.authoring import (
     add_manual_case,
     initialize_dataset,
+    validate_case,
     validate_dataset,
 )
 from ctrl_v2.evaluation.contracts import (
@@ -89,9 +90,12 @@ def test_manual_gold_dataset_authoring_round_trip(tmp_path: Path):
     initialize_dataset(dataset_path, "product-rfp-gold", "1.0.0", "Human curated")
     case_path.write_text(json.dumps(_manual_case()), encoding="utf-8")
 
+    case_id, case_digest = validate_case(case_path)
     add_manual_case(dataset_path, case_path)
     case_count, digest = validate_dataset(dataset_path)
 
+    assert case_id == "sso-001"
+    assert len(case_digest) == 64
     assert case_count == 1
     assert len(digest) == 64
 
