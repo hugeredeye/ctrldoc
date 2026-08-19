@@ -13,18 +13,19 @@ are deliberately represented only by versioned contracts/ports. They are not imp
 
 ## Local setup
 
-1. Set `POSTGRES_ADMIN_PASSWORD`, `POSTGRES_APP_PASSWORD`, `DATABASE_URL`, and
-   `OBJECT_STORAGE_ROOT` in the local environment. `DATABASE_URL` must use the non-superuser
-   application role, never the Compose bootstrap administrator.
+1. Set `POSTGRES_ADMIN_PASSWORD`, `POSTGRES_MIGRATOR_PASSWORD`,
+   `POSTGRES_RUNTIME_PASSWORD`, `DATABASE_URL`, and `OBJECT_STORAGE_ROOT` in the local
+   environment. The API `DATABASE_URL` must use `ctrl_v2_runtime`. For the separate Alembic
+   process only, set `DATABASE_URL` to `ctrl_v2_migrator`; never expose that URL to the API.
 2. Start PostgreSQL with `docker compose up -d postgres`.
 3. Run `alembic upgrade head`.
 4. Install the package with its development dependencies and run `pytest`.
 5. Start the API with `ctrl-api`.
 
-The PostgreSQL suite requires two runtime-only URLs: `TEST_DATABASE_URL` for the non-superuser
-application role and `TEST_DATABASE_ADMIN_URL` for creating and dropping the isolated test
-database. Run it with `pytest tests/postgres -vv`. SQLite tests remain useful for fast feedback,
-but are not accepted as validation of RLS, deferred constraints, or PostgreSQL triggers.
+The test suite requires `TEST_DATABASE_ADMIN_URL`, `TEST_DATABASE_MIGRATOR_URL`, and
+`TEST_DATABASE_RUNTIME_URL`. Tests create and drop an isolated PostgreSQL database, apply the
+complete Alembic history as `ctrl_v2_migrator`, and exercise the application as
+`ctrl_v2_runtime`. SQLite is not a supported runtime or migration backend.
 
 Uploaded documents and exports are held behind `ObjectStorage`; the local adapter writes to a
 private runtime directory that FastAPI never mounts as static content.

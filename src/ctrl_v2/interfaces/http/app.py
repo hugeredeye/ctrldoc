@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from datetime import date
 from typing import Annotated, Any
 
@@ -60,9 +61,7 @@ WorkspaceAccess = Annotated[str, Depends(_workspace_access)]
 
 def create_app(settings: Settings) -> FastAPI:
     logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
-    database = Database(
-        settings.database_url.get_secret_value(), create_schema=settings.create_schema
-    )
+    database = Database(settings.database_url.get_secret_value())
     storage = PrivateFileObjectStorage(settings.object_storage_root)
     workflow = Stage1Workflow(
         SqlAlchemyUnitOfWorkFactory(database.session_factory),
@@ -71,7 +70,12 @@ def create_app(settings: Settings) -> FastAPI:
         DeterministicXlsxExporter(),
         max_upload_bytes=settings.max_upload_bytes,
     )
-    app = FastAPI(title="CTRL v2", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        database.verify_runtime_readiness()
+        yield
+
+    app = FastAPI(title="CTRL v2", version="0.1.0", lifespan=lifespan)
     app.state.database = database
     app.state.workflow = workflow
     app.middleware("http")(safe_access_log)
@@ -97,7 +101,8 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        database.verify_runtime_readiness()
+        return {"status": "ready"}
 
     @app.post("/api/v1/workspaces", status_code=201)
     def create_workspace(body: WorkspaceCreate, request: Request) -> dict[str, Any]:

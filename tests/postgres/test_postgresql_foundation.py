@@ -45,11 +45,16 @@ def test_alembic_migration_on_clean_postgresql(postgresql_url: str):
                     )
                 )
             )
-            is_superuser = connection.scalar(
-                text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
-            )
-        assert revision == "4b6c3a9e2d11"
-        assert is_superuser is False
+            role = connection.execute(
+                text(
+                    "SELECT current_user, rolsuper, rolbypassrls FROM pg_roles "
+                    "WHERE rolname = current_user"
+                )
+            ).one()
+        assert revision == "8d4f2a1c7b90"
+        assert role.current_user == "ctrl_v2_runtime"
+        assert role.rolsuper is False
+        assert role.rolbypassrls is False
         assert len(inspect(engine).get_table_names()) == 28
         assert policies == 26
         assert triggers == {
