@@ -24,6 +24,15 @@ def _manual_case() -> dict[str, object]:
     return {
         "case_id": "sso-001",
         "description": "Human-reviewed SAML requirement",
+        "annotation": {
+            "annotator": "reviewer-1",
+            "annotation_version": "1.0",
+            "annotated_at": "2026-08-19T00:00:00Z",
+        },
+        "provenance": {
+            "source_collection": "manual-test",
+            "source_revision": "1",
+        },
         "source_requirement": {
             "asset_path": "assets/rfp.xlsx",
             "source_text": source_text,
@@ -53,6 +62,8 @@ def _manual_case() -> dict[str, object]:
                 "atomic_requirement_key": "REQ-1",
                 "product_version_key": "ctrl-7",
                 "asset_path": "assets/spec.pdf",
+                "document_key": "ctrl-spec",
+                "document_version": "7",
                 "source_type": "OFFICIAL_SPECIFICATION",
                 "authority_level": "AUTHORITATIVE",
                 "valid_from": "2026-01-01",

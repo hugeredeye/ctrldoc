@@ -6,7 +6,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .gold_dataset import GoldCase, GoldDataset
+from .gold_dataset import DatasetScope, GoldCase, GoldDataset, assert_checked_in_fixture
 
 
 def _canonical_payload(model: GoldDataset) -> bytes:
@@ -33,12 +33,33 @@ def _replace(path: Path, payload: bytes) -> None:
     temporary.replace(path)
 
 
-def initialize_dataset(path: Path, dataset_id: str, version: str, description: str) -> str:
+def dataset_sha256(dataset: GoldDataset) -> str:
+    return hashlib.sha256(_canonical_payload(dataset)).hexdigest()
+
+
+def load_dataset(path: Path, *, checked_in: bool = False) -> GoldDataset:
+    dataset = GoldDataset.model_validate_json(path.read_text(encoding="utf-8"))
+    if checked_in:
+        assert_checked_in_fixture(dataset)
+    return dataset
+
+
+def initialize_dataset(
+    path: Path,
+    dataset_id: str,
+    version: str,
+    description: str,
+    *,
+    scope: DatasetScope = DatasetScope.EXTERNAL_RESTRICTED,
+    contains_customer_data: bool = False,
+) -> str:
     dataset = GoldDataset(
         dataset_id=dataset_id,
         version=version,
         description=description,
         created_at=datetime.now(UTC),
+        scope=scope,
+        contains_customer_data=contains_customer_data,
         cases=(),
     )
     payload = _canonical_payload(dataset)
@@ -47,7 +68,7 @@ def initialize_dataset(path: Path, dataset_id: str, version: str, description: s
 
 
 def add_manual_case(dataset_path: Path, case_path: Path) -> str:
-    dataset = GoldDataset.model_validate_json(dataset_path.read_text(encoding="utf-8"))
+    dataset = load_dataset(dataset_path)
     case = GoldCase.model_validate_json(case_path.read_text(encoding="utf-8"))
     if any(existing.case_id == case.case_id for existing in dataset.cases):
         raise ValueError(f"case_id already exists: {case.case_id}")
@@ -58,7 +79,7 @@ def add_manual_case(dataset_path: Path, case_path: Path) -> str:
 
 
 def validate_dataset(path: Path) -> tuple[int, str]:
-    dataset = GoldDataset.model_validate_json(path.read_text(encoding="utf-8"))
+    dataset = load_dataset(path)
     payload = _canonical_payload(dataset)
     return len(dataset.cases), hashlib.sha256(payload).hexdigest()
 
@@ -80,6 +101,12 @@ def main() -> None:
     initialize.add_argument("--dataset-id", required=True)
     initialize.add_argument("--version", required=True)
     initialize.add_argument("--description", required=True)
+    initialize.add_argument(
+        "--scope",
+        choices=[scope.value for scope in DatasetScope],
+        default=DatasetScope.EXTERNAL_RESTRICTED.value,
+    )
+    initialize.add_argument("--contains-customer-data", action="store_true")
 
     add_case = subparsers.add_parser("add-case", help="Append a manually authored case JSON")
     add_case.add_argument("dataset", type=Path)
@@ -98,6 +125,8 @@ def main() -> None:
             arguments.dataset_id,
             arguments.version,
             arguments.description,
+            scope=DatasetScope(arguments.scope),
+            contains_customer_data=arguments.contains_customer_data,
         )
         print(f"initialized cases=0 sha256={digest}")
     elif arguments.command == "add-case":

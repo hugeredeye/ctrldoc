@@ -1,0 +1,188 @@
+{
+  "cases": [
+    {
+      "annotation": {
+        "annotated_at": "2026-08-19T00:00:00Z",
+        "annotation_version": "1.0",
+        "annotator": "fixture-reviewer"
+      },
+      "case_id": "saml-sso-001",
+      "description": "Checked-in retrieval fixture for exact SAML support evidence",
+      "gold_atomic_requirements": [
+        {
+          "atomic_text": "The platform shall support SAML 2.0 single sign-on.",
+          "key": "REQ-SAML",
+          "modality": "MUST",
+          "source_end_offset": 51,
+          "source_quote": "The platform shall support SAML 2.0 single sign-on.",
+          "source_start_offset": 0
+        }
+      ],
+      "gold_compliance_outcomes": [
+        {
+          "assessment_as_of": "2026-08-19",
+          "atomic_requirement_key": "REQ-SAML",
+          "critical": true,
+          "outcome": "COMPLY",
+          "product_version_key": "product-7"
+        }
+      ],
+      "gold_evidence_spans": [
+        {
+          "asset_path": "fixtures/product-7-security-guide.pdf",
+          "atomic_requirement_key": "REQ-SAML",
+          "authority_level": "AUTHORITATIVE",
+          "document_key": "product-security-guide",
+          "document_version": "7.0",
+          "exact_quote": "Product 7 supports SAML 2.0 single sign-on for enterprise identity providers.",
+          "key": "SPAN-SAML-V7",
+          "locator": {
+            "kind": "PDF",
+            "page": 12
+          },
+          "product_version_key": "product-7",
+          "source_type": "OFFICIAL_SPECIFICATION",
+          "valid_from": "2026-01-01"
+        }
+      ],
+      "gold_mappings": [
+        {
+          "atomic_requirement_key": "REQ-SAML",
+          "capability_key": "identity.saml-sso",
+          "product_key": "product",
+          "product_version_key": "product-7"
+        }
+      ],
+      "hard_negative_evidence": [
+        {
+          "asset_path": "fixtures/product-6-security-guide.pdf",
+          "atomic_requirement_key": "REQ-SAML",
+          "authority_level": "AUTHORITATIVE",
+          "document_key": "product-security-guide",
+          "document_version": "6.0-obsolete",
+          "exact_quote": "Product 6 supports LDAP authentication; SAML single sign-on is not available.",
+          "key": "SPAN-SAML-V6-NEGATIVE",
+          "locator": {
+            "kind": "PDF",
+            "page": 9
+          },
+          "product_version_key": "product-6",
+          "reason": "Same product family but obsolete version explicitly lacks the capability.",
+          "source_type": "OFFICIAL_SPECIFICATION",
+          "valid_from": "2024-01-01",
+          "valid_to": "2025-12-31"
+        }
+      ],
+      "provenance": {
+        "notes": "Manually reviewed, synthetic test-only wording.",
+        "source_collection": "stage2-checked-in-fixtures",
+        "source_revision": "1"
+      },
+      "source_requirement": {
+        "asset_path": "fixtures/requirements.xlsx",
+        "context": "Identity and access management requirements",
+        "locator": {
+          "cell_range": "A2",
+          "kind": "XLSX",
+          "sheet": "Requirements"
+        },
+        "source_text": "The platform shall support SAML 2.0 single sign-on."
+      }
+    },
+    {
+      "annotation": {
+        "annotated_at": "2026-08-19T00:00:00Z",
+        "annotation_version": "1.0",
+        "annotator": "fixture-reviewer"
+      },
+      "case_id": "encryption-at-rest-001",
+      "description": "Checked-in retrieval fixture distinguishing at-rest from in-transit encryption",
+      "gold_atomic_requirements": [
+        {
+          "atomic_text": "Customer data at rest must be encrypted using AES-256.",
+          "key": "REQ-AES-REST",
+          "modality": "MUST",
+          "source_end_offset": 54,
+          "source_quote": "Customer data at rest must be encrypted using AES-256.",
+          "source_start_offset": 0
+        }
+      ],
+      "gold_compliance_outcomes": [
+        {
+          "assessment_as_of": "2026-08-19",
+          "atomic_requirement_key": "REQ-AES-REST",
+          "critical": true,
+          "outcome": "COMPLY",
+          "product_version_key": "product-7"
+        }
+      ],
+      "gold_evidence_spans": [
+        {
+          "asset_path": "fixtures/product-7-storage-spec.pdf",
+          "atomic_requirement_key": "REQ-AES-REST",
+          "authority_level": "AUTHORITATIVE",
+          "document_key": "product-storage-spec",
+          "document_version": "7.0",
+          "exact_quote": "Customer data at rest is encrypted with AES-256 storage encryption.",
+          "key": "SPAN-AES-REST-V7",
+          "locator": {
+            "kind": "PDF",
+            "page": 4
+          },
+          "product_version_key": "product-7",
+          "source_type": "OFFICIAL_SPECIFICATION",
+          "valid_from": "2026-01-01"
+        }
+      ],
+      "gold_mappings": [
+        {
+          "atomic_requirement_key": "REQ-AES-REST",
+          "capability_key": "security.encryption-at-rest",
+          "product_key": "product",
+          "product_version_key": "product-7"
+        }
+      ],
+      "hard_negative_evidence": [
+        {
+          "asset_path": "fixtures/product-7-network-spec.pdf",
+          "atomic_requirement_key": "REQ-AES-REST",
+          "authority_level": "AUTHORITATIVE",
+          "document_key": "product-network-spec",
+          "document_version": "7.0",
+          "exact_quote": "TLS 1.3 encrypts customer data in transit between clients and the service.",
+          "key": "SPAN-TLS-TRANSIT-NEGATIVE",
+          "locator": {
+            "kind": "PDF",
+            "page": 7
+          },
+          "product_version_key": "product-7",
+          "reason": "Semantically similar encryption evidence, but it proves transport rather than storage protection.",
+          "source_type": "OFFICIAL_SPECIFICATION",
+          "valid_from": "2026-01-01"
+        }
+      ],
+      "provenance": {
+        "notes": "Manually reviewed, synthetic test-only wording.",
+        "source_collection": "stage2-checked-in-fixtures",
+        "source_revision": "1"
+      },
+      "source_requirement": {
+        "asset_path": "fixtures/requirements.xlsx",
+        "context": "Data protection requirements",
+        "locator": {
+          "cell_range": "A3",
+          "kind": "XLSX",
+          "sheet": "Requirements"
+        },
+        "source_text": "Customer data at rest must be encrypted using AES-256."
+      }
+    }
+  ],
+  "contains_customer_data": false,
+  "created_at": "2026-08-19T00:00:00Z",
+  "dataset_id": "stage2-retrieval-fixture",
+  "description": "Small non-customer fixture for automated retrieval baseline tests",
+  "schema_version": "2.0",
+  "scope": "CHECKED_IN_TEST",
+  "version": "1.0.0"
+}

@@ -1,15 +1,11 @@
 {
   "$defs": {
-    "ComplianceOutcome": {
+    "DatasetScope": {
       "enum": [
-        "COMPLY",
-        "PARTIAL",
-        "NON_COMPLY",
-        "UNKNOWN",
-        "NOT_APPLICABLE",
-        "NEEDS_CLARIFICATION"
+        "CHECKED_IN_TEST",
+        "EXTERNAL_RESTRICTED"
       ],
-      "title": "ComplianceOutcome",
+      "title": "DatasetScope",
       "type": "string"
     },
     "DocxLocator": {
@@ -31,9 +27,6 @@
         "kind": {
           "const": "DOCX",
           "default": "DOCX",
-          "enum": [
-            "DOCX"
-          ],
           "title": "Kind",
           "type": "string"
         },
@@ -113,6 +106,33 @@
       "title": "EvidenceSourceType",
       "type": "string"
     },
+    "GoldAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotated_at": {
+          "format": "date-time",
+          "title": "Annotated At",
+          "type": "string"
+        },
+        "annotation_version": {
+          "minLength": 1,
+          "title": "Annotation Version",
+          "type": "string"
+        },
+        "annotator": {
+          "minLength": 1,
+          "title": "Annotator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "annotator",
+        "annotation_version",
+        "annotated_at"
+      ],
+      "title": "GoldAnnotation",
+      "type": "object"
+    },
     "GoldAtomicRequirement": {
       "additionalProperties": false,
       "properties": {
@@ -161,6 +181,9 @@
     "GoldCase": {
       "additionalProperties": false,
       "properties": {
+        "annotation": {
+          "$ref": "#/$defs/GoldAnnotation"
+        },
         "case_id": {
           "minLength": 1,
           "pattern": "^[a-zA-Z0-9._-]+$",
@@ -202,6 +225,17 @@
           "title": "Gold Mappings",
           "type": "array"
         },
+        "hard_negative_evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GoldHardNegativeEvidence"
+          },
+          "title": "Hard Negative Evidence",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/GoldProvenance"
+        },
         "source_requirement": {
           "$ref": "#/$defs/GoldSourceRequirement"
         }
@@ -210,6 +244,8 @@
         "case_id",
         "description",
         "source_requirement",
+        "annotation",
+        "provenance",
         "gold_atomic_requirements",
         "gold_mappings",
         "gold_evidence_spans",
@@ -217,6 +253,17 @@
       ],
       "title": "GoldCase",
       "type": "object"
+    },
+    "GoldComplianceLabel": {
+      "enum": [
+        "COMPLY",
+        "PARTIAL",
+        "GAP",
+        "UNKNOWN",
+        "NEEDS_CLARIFICATION"
+      ],
+      "title": "GoldComplianceLabel",
+      "type": "string"
     },
     "GoldComplianceOutcome": {
       "additionalProperties": false,
@@ -236,16 +283,23 @@
           "type": "boolean"
         },
         "outcome": {
-          "$ref": "#/$defs/ComplianceOutcome"
+          "$ref": "#/$defs/GoldComplianceLabel"
         },
         "product_version_key": {
-          "title": "Product Version Key",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Version Key"
         }
       },
       "required": [
         "atomic_requirement_key",
-        "product_version_key",
         "assessment_as_of",
         "outcome"
       ],
@@ -267,14 +321,32 @@
         "authority_level": {
           "$ref": "#/$defs/EvidenceAuthorityLevel"
         },
+        "document_key": {
+          "minLength": 1,
+          "title": "Document Key",
+          "type": "string"
+        },
+        "document_version": {
+          "minLength": 1,
+          "title": "Document Version",
+          "type": "string"
+        },
         "exact_quote": {
           "minLength": 1,
           "title": "Exact Quote",
           "type": "string"
         },
         "key": {
-          "title": "Key",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
         },
         "locator": {
           "discriminator": {
@@ -299,8 +371,29 @@
           "title": "Locator"
         },
         "product_version_key": {
-          "title": "Product Version Key",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Version Key"
+        },
+        "source_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Sha256"
         },
         "source_type": {
           "$ref": "#/$defs/EvidenceSourceType"
@@ -325,10 +418,10 @@
         }
       },
       "required": [
-        "key",
         "atomic_requirement_key",
-        "product_version_key",
         "asset_path",
+        "document_key",
+        "document_version",
         "source_type",
         "authority_level",
         "valid_from",
@@ -336,6 +429,137 @@
         "locator"
       ],
       "title": "GoldEvidenceSpan",
+      "type": "object"
+    },
+    "GoldHardNegativeEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_path": {
+          "minLength": 1,
+          "title": "Asset Path",
+          "type": "string"
+        },
+        "atomic_requirement_key": {
+          "title": "Atomic Requirement Key",
+          "type": "string"
+        },
+        "authority_level": {
+          "$ref": "#/$defs/EvidenceAuthorityLevel"
+        },
+        "document_key": {
+          "minLength": 1,
+          "title": "Document Key",
+          "type": "string"
+        },
+        "document_version": {
+          "minLength": 1,
+          "title": "Document Version",
+          "type": "string"
+        },
+        "exact_quote": {
+          "minLength": 1,
+          "title": "Exact Quote",
+          "type": "string"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "locator": {
+          "discriminator": {
+            "mapping": {
+              "DOCX": "#/$defs/DocxLocator",
+              "PDF": "#/$defs/PdfLocator",
+              "XLSX": "#/$defs/XlsxLocator"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PdfLocator"
+            },
+            {
+              "$ref": "#/$defs/DocxLocator"
+            },
+            {
+              "$ref": "#/$defs/XlsxLocator"
+            }
+          ],
+          "title": "Locator"
+        },
+        "product_version_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Version Key"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "source_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Sha256"
+        },
+        "source_type": {
+          "$ref": "#/$defs/EvidenceSourceType"
+        },
+        "valid_from": {
+          "format": "date",
+          "title": "Valid From",
+          "type": "string"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "atomic_requirement_key",
+        "asset_path",
+        "document_key",
+        "document_version",
+        "source_type",
+        "authority_level",
+        "valid_from",
+        "exact_quote",
+        "locator",
+        "reason"
+      ],
+      "title": "GoldHardNegativeEvidence",
       "type": "object"
     },
     "GoldMapping": {
@@ -346,25 +570,79 @@
           "type": "string"
         },
         "capability_key": {
-          "title": "Capability Key",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability Key"
         },
         "product_key": {
-          "title": "Product Key",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Key"
         },
         "product_version_key": {
-          "title": "Product Version Key",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Version Key"
+        }
+      },
+      "required": [
+        "atomic_requirement_key"
+      ],
+      "title": "GoldMapping",
+      "type": "object"
+    },
+    "GoldProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "source_collection": {
+          "minLength": 1,
+          "title": "Source Collection",
+          "type": "string"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
           "type": "string"
         }
       },
       "required": [
-        "atomic_requirement_key",
-        "product_key",
-        "product_version_key",
-        "capability_key"
+        "source_collection",
+        "source_revision"
       ],
-      "title": "GoldMapping",
+      "title": "GoldProvenance",
       "type": "object"
     },
     "GoldSourceRequirement": {
@@ -375,6 +653,18 @@
           "minLength": 1,
           "title": "Asset Path",
           "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
         },
         "locator": {
           "discriminator": {
@@ -446,9 +736,6 @@
         "kind": {
           "const": "PDF",
           "default": "PDF",
-          "enum": [
-            "PDF"
-          ],
           "title": "Kind",
           "type": "string"
         },
@@ -474,9 +761,6 @@
         "kind": {
           "const": "XLSX",
           "default": "XLSX",
-          "enum": [
-            "XLSX"
-          ],
           "title": "Kind",
           "type": "string"
         },
@@ -515,6 +799,10 @@
       "title": "Cases",
       "type": "array"
     },
+    "contains_customer_data": {
+      "title": "Contains Customer Data",
+      "type": "boolean"
+    },
     "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -532,13 +820,13 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "1.0",
-      "default": "1.0",
-      "enum": [
-        "1.0"
-      ],
+      "const": "2.0",
+      "default": "2.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/DatasetScope"
     },
     "version": {
       "minLength": 1,
@@ -550,7 +838,9 @@
     "dataset_id",
     "version",
     "description",
-    "created_at"
+    "created_at",
+    "scope",
+    "contains_customer_data"
   ],
   "title": "GoldDataset",
   "type": "object"

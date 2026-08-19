@@ -21,6 +21,10 @@ dist/
 build/
 *.egg-info/
 
+# Real/restricted evaluation corpora and local experiment outputs stay outside Git.
+evaluations/datasets/
+evaluations/results/
+
 *.pem
 *.key
 *.p8
