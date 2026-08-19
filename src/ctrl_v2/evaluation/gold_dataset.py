@@ -30,6 +30,16 @@ class DatasetScope(StrEnum):
     EXTERNAL_RESTRICTED = "EXTERNAL_RESTRICTED"
 
 
+class HardNegativeErrorTag(StrEnum):
+    WRONG_PRODUCT_VERSION = "WRONG_PRODUCT_VERSION"
+    OBSOLETE_SOURCE = "OBSOLETE_SOURCE"
+    ROADMAP_NOT_RELEASED = "ROADMAP_NOT_RELEASED"
+    NON_ENTAILING = "NON_ENTAILING"
+    CONFLICTING_EVIDENCE = "CONFLICTING_EVIDENCE"
+    TEMPORAL_VALIDITY = "TEMPORAL_VALIDITY"
+    SOURCE_AUTHORITY = "SOURCE_AUTHORITY"
+
+
 class GoldModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -99,6 +109,7 @@ class GoldEvidenceSpan(GoldModel):
 
 class GoldHardNegativeEvidence(GoldEvidenceSpan):
     reason: str = Field(min_length=1)
+    error_tags: tuple[HardNegativeErrorTag, ...] = ()
 
 
 class GoldAnnotation(GoldModel):

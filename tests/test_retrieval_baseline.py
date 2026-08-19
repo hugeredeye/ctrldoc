@@ -228,7 +228,7 @@ def test_experiment_metadata_and_results_are_reproducible(retrieval_setup):
     assert len(first.metadata.dataset_sha256) == 64
     assert first.metadata.retrieval_method == "lexical"
     assert first.metadata.random_seed == 17
-    assert first.mean_latency_ms == 1.0
+    assert first.mean_latency_ms == 2.0
     assert all(case.candidate_count == 4 for case in first.cases)
     assert json.loads(first.model_dump_json())["metrics"]["evidence_recall_at_1"] == 1.0
 

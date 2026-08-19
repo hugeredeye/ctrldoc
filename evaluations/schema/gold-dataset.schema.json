@@ -456,6 +456,14 @@
           "title": "Document Version",
           "type": "string"
         },
+        "error_tags": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/HardNegativeErrorTag"
+          },
+          "title": "Error Tags",
+          "type": "array"
+        },
         "exact_quote": {
           "minLength": 1,
           "title": "Exact Quote",
@@ -701,6 +709,19 @@
       ],
       "title": "GoldSourceRequirement",
       "type": "object"
+    },
+    "HardNegativeErrorTag": {
+      "enum": [
+        "WRONG_PRODUCT_VERSION",
+        "OBSOLETE_SOURCE",
+        "ROADMAP_NOT_RELEASED",
+        "NON_ENTAILING",
+        "CONFLICTING_EVIDENCE",
+        "TEMPORAL_VALIDITY",
+        "SOURCE_AUTHORITY"
+      ],
+      "title": "HardNegativeErrorTag",
+      "type": "string"
     },
     "PdfLocator": {
       "additionalProperties": false,

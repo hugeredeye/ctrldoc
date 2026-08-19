@@ -32,6 +32,7 @@ class RetrievalJudgment(ExperimentModel):
     query: RetrievalQuery
     positive_evidence_span_ids: frozenset[str] = Field(min_length=1)
     hard_negative_evidence_span_ids: frozenset[str] = frozenset()
+    hard_negative_error_tags: dict[str, tuple[str, ...]] = Field(default_factory=dict)
 
 
 class RetrievalProblem(ExperimentModel):
@@ -42,37 +43,45 @@ class RetrievalProblem(ExperimentModel):
 class RetrievalCaseResult(ExperimentModel):
     query_id: str
     latency_ms: float = Field(ge=0)
+    retrieval_latency_ms: float = Field(ge=0)
+    reranking_latency_ms: float = Field(ge=0)
     candidate_count: int = Field(ge=0)
+    final_candidate_count: int = Field(ge=0)
     corpus_size: int = Field(ge=0)
     ranked_candidates: tuple[RetrievedEvidenceSpan, ...]
 
 
 class RetrievalRunMetadata(ExperimentModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["2.0"] = "2.0"
     run_id: str
     dataset_id: str
     dataset_version: str
     dataset_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    method_label: str
     retrieval_method: str
     retrieval_implementation: str
     embedding_model_id: str | None = None
     reranker_implementation: str
+    reranker_model_id: str | None = None
     parameters: dict[str, JsonScalar]
     random_seed: int
     code_version: str
-    retrieval_limit: int = Field(gt=0)
+    candidate_limit: int = Field(gt=0)
+    final_limit: int = Field(gt=0)
 
 
 class RetrievalExperimentRun(ExperimentModel):
     metadata: RetrievalRunMetadata
     metrics: dict[str, float | int]
     mean_latency_ms: float = Field(ge=0)
+    p50_latency_ms: float = Field(ge=0)
+    p95_latency_ms: float = Field(ge=0)
     total_latency_ms: float = Field(ge=0)
     cases: tuple[RetrievalCaseResult, ...]
 
 
 class RetrievalExperimentSuite(ExperimentModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["2.0"] = "2.0"
     dataset_id: str
     dataset_version: str
     dataset_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -150,6 +159,11 @@ def build_retrieval_problem(dataset: GoldDataset) -> RetrievalProblem:
                 for span in case.hard_negative_evidence
                 if span.atomic_requirement_key == atomic.key
             )
+            hard_negative_error_tags = {
+                _canonical_span_id(span): tuple(tag.value for tag in span.error_tags)
+                for span in case.hard_negative_evidence
+                if span.atomic_requirement_key == atomic.key
+            }
             judgments.append(
                 RetrievalJudgment(
                     query=RetrievalQuery(
@@ -161,6 +175,7 @@ def build_retrieval_problem(dataset: GoldDataset) -> RetrievalProblem:
                     ),
                     positive_evidence_span_ids=positives,
                     hard_negative_evidence_span_ids=hard_negatives,
+                    hard_negative_error_tags=hard_negative_error_tags,
                 )
             )
     return RetrievalProblem(
@@ -194,6 +209,17 @@ def resolve_git_commit(repository: Path) -> str:
     return result.stdout.strip() or "unknown"
 
 
+def _percentile(values: Sequence[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * percentile
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = position - lower
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+
 def run_retrieval_experiment(
     dataset: GoldDataset,
     problem: RetrievalProblem,
@@ -201,26 +227,38 @@ def run_retrieval_experiment(
     reranker: EvidenceReranker,
     *,
     retrieval_limit: int = 5,
+    final_limit: int | None = None,
+    method_label: str | None = None,
     random_seed: int = 0,
     code_version: str = "unknown",
     timer_ns: Callable[[], int] = time.perf_counter_ns,
+    retrieval_latency_overrides_ms: Mapping[str, float] | None = None,
 ) -> RetrievalExperimentRun:
     if retrieval_limit <= 0:
         raise ValueError("retrieval_limit must be positive")
+    resolved_final_limit = final_limit if final_limit is not None else retrieval_limit
+    if resolved_final_limit <= 0 or resolved_final_limit > retrieval_limit:
+        raise ValueError("final_limit must be positive and cannot exceed retrieval_limit")
     dataset_digest = dataset_sha256(dataset)
-    parameters = dict(retriever.parameters)
+    parameters = {
+        **dict(retriever.parameters),
+        **{f"reranker.{key}": value for key, value in reranker.parameters.items()},
+    }
     fingerprint_payload: dict[str, object] = {
         "dataset_id": dataset.dataset_id,
         "dataset_version": dataset.version,
         "dataset_sha256": dataset_digest,
+        "method_label": method_label or retriever.method,
         "retrieval_method": retriever.method,
         "retrieval_implementation": retriever.implementation_id,
         "embedding_model_id": retriever.embedding_model_id,
         "reranker_implementation": reranker.implementation_id,
+        "reranker_model_id": reranker.model_id,
         "parameters": parameters,
         "random_seed": random_seed,
         "code_version": code_version,
-        "retrieval_limit": retrieval_limit,
+        "candidate_limit": retrieval_limit,
+        "final_limit": resolved_final_limit,
     }
     metadata = RetrievalRunMetadata(
         run_id=_run_id(fingerprint_payload),
@@ -231,14 +269,27 @@ def run_retrieval_experiment(
     for judgment in problem.judgments:
         started = timer_ns()
         retrieved = retriever.retrieve(judgment.query, limit=retrieval_limit)
-        ranked = reranker.rerank(judgment.query, retrieved, limit=retrieval_limit)
-        elapsed_ms = max(timer_ns() - started, 0) / 1_000_000
+        retrieved_at = timer_ns()
+        ranked = reranker.rerank(judgment.query, retrieved, limit=resolved_final_limit)
+        completed_at = timer_ns()
+        measured_retrieval_ms = max(retrieved_at - started, 0) / 1_000_000
+        retrieval_ms = (
+            retrieval_latency_overrides_ms[judgment.query.query_id]
+            if retrieval_latency_overrides_ms
+            and judgment.query.query_id in retrieval_latency_overrides_ms
+            else measured_retrieval_ms
+        )
+        reranking_ms = max(completed_at - retrieved_at, 0) / 1_000_000
+        elapsed_ms = retrieval_ms + reranking_ms
         ranked_ids = tuple(item.candidate.evidence_span_id for item in ranked)
         case_results.append(
             RetrievalCaseResult(
                 query_id=judgment.query.query_id,
                 latency_ms=elapsed_ms,
-                candidate_count=len(ranked),
+                retrieval_latency_ms=retrieval_ms,
+                reranking_latency_ms=reranking_ms,
+                candidate_count=len(retrieved),
+                final_candidate_count=len(ranked),
                 corpus_size=retriever.candidate_count,
                 ranked_candidates=ranked,
             )
@@ -252,10 +303,13 @@ def run_retrieval_experiment(
             )
         )
     total_latency = sum(item.latency_ms for item in case_results)
+    latencies = [item.latency_ms for item in case_results]
     return RetrievalExperimentRun(
         metadata=metadata,
         metrics=evaluate_retrieval(metric_cases).as_dict(),
         mean_latency_ms=total_latency / len(case_results) if case_results else 0.0,
+        p50_latency_ms=_percentile(latencies, 0.50),
+        p95_latency_ms=_percentile(latencies, 0.95),
         total_latency_ms=total_latency,
         cases=tuple(case_results),
     )
@@ -281,6 +335,8 @@ def run_retrieval_comparison(
             retriever,
             reranker,
             retrieval_limit=retrieval_limit,
+            final_limit=retrieval_limit,
+            method_label=retriever.method,
             random_seed=random_seed,
             code_version=code_version,
             timer_ns=timer_ns,

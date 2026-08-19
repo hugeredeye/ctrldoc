@@ -1,0 +1,51 @@
+{
+  "candidate_n": 20,
+  "dense_weight": 1.0,
+  "embedding": {
+    "artifact": {
+      "config_sha256": "d185df634c872f06fc6dcb3bad4375d3c447234baea8a6e548103f653b595a35",
+      "model_name": "intfloat/multilingual-e5-large-instruct",
+      "revision": "84344a23ee1820ac951bc365f1e91d094a911763",
+      "weights_sha256": "dd6b6e4f52db0a7aff83a13d10e6c5342ef9f6ab799bad3221f4b35ef390fa85"
+    },
+    "batch_size": 8,
+    "cache_dir": null,
+    "device": "cpu",
+    "embedding_dimension": 1024,
+    "local_path": null,
+    "max_length": 512,
+    "normalize_embeddings": true,
+    "offline": true,
+    "query_instruction": "Given an RFI, RFP, or technical requirement, retrieve exact product evidence passages that prove or disprove the requirement",
+    "torch_dtype": "float32"
+  },
+  "final_k": 5,
+  "leakage": {
+    "configuration_frozen_before_test": true,
+    "dataset_split": "TEST",
+    "development_dataset_sha256": null,
+    "hard_negatives_usage": "EVALUATION_ONLY",
+    "positives_usage": "EVALUATION_ONLY",
+    "rrf_weight_source": "FIXED_BASELINE"
+  },
+  "lexical_weight": 1.0,
+  "random_seed": 0,
+  "reranker": {
+    "artifact": {
+      "config_sha256": "13dcd6c31d9fec9d1d8e158702072f62d7fa7d312a64b9fe057bec9a08cfe41a",
+      "model_name": "BAAI/bge-reranker-v2-m3",
+      "revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+      "weights_sha256": "d9e3e081faff1eefb84019509b2f5558fd74c1a05a2c7db22f74174fcedb5286"
+    },
+    "batch_size": 4,
+    "cache_dir": null,
+    "device": "cpu",
+    "local_path": null,
+    "max_length": 512,
+    "offline": true,
+    "score_activation": "sigmoid",
+    "torch_dtype": "float32"
+  },
+  "rrf_k": 60,
+  "schema_version": "1.0"
+}

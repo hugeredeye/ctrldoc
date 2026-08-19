@@ -60,6 +60,10 @@
           "authority_level": "AUTHORITATIVE",
           "document_key": "product-security-guide",
           "document_version": "6.0-obsolete",
+          "error_tags": [
+            "WRONG_PRODUCT_VERSION",
+            "OBSOLETE_SOURCE"
+          ],
           "exact_quote": "Product 6 supports LDAP authentication; SAML single sign-on is not available.",
           "key": "SPAN-SAML-V6-NEGATIVE",
           "locator": {
@@ -149,6 +153,9 @@
           "authority_level": "AUTHORITATIVE",
           "document_key": "product-network-spec",
           "document_version": "7.0",
+          "error_tags": [
+            "NON_ENTAILING"
+          ],
           "exact_quote": "TLS 1.3 encrypts customer data in transit between clients and the service.",
           "key": "SPAN-TLS-TRANSIT-NEGATIVE",
           "locator": {

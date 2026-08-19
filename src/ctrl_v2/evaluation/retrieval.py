@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from .retrieval_contracts import (
+    AsymmetricEmbeddingModel,
     EmbeddingModel,
     EvidenceSpanCandidate,
     JsonScalar,
@@ -206,8 +207,13 @@ class DenseRetriever:
     ) -> None:
         self._candidates = _validated_candidates(candidates)
         self._embedding_model = embedding_model
+        embed_documents = (
+            embedding_model.embed_documents
+            if isinstance(embedding_model, AsymmetricEmbeddingModel)
+            else embedding_model.embed
+        )
         self._candidate_vectors = _validate_embeddings(
-            embedding_model.embed([candidate.canonical_text for candidate in self._candidates]),
+            embed_documents([candidate.canonical_text for candidate in self._candidates]),
             len(self._candidates),
         )
 
@@ -231,9 +237,12 @@ class DenseRetriever:
     def retrieve(self, query: RetrievalQuery, *, limit: int) -> tuple[RetrievedEvidenceSpan, ...]:
         if limit <= 0:
             raise ValueError("retrieval limit must be positive")
-        query_vector = _validate_embeddings(
-            self._embedding_model.embed([query.requirement_text]), 1
-        )[0]
+        embed_queries = (
+            self._embedding_model.embed_queries
+            if isinstance(self._embedding_model, AsymmetricEmbeddingModel)
+            else self._embedding_model.embed
+        )
+        query_vector = _validate_embeddings(embed_queries([query.requirement_text]), 1)[0]
         if len(query_vector) != len(self._candidate_vectors[0]):
             raise ValueError("query and candidate embedding dimensions differ")
         scored = [
@@ -341,6 +350,11 @@ class HybridRetriever:
 
 class IdentityReranker:
     implementation_id = "identity-reranker-v1"
+    model_id = None
+
+    @property
+    def parameters(self) -> Mapping[str, JsonScalar]:
+        return {}
 
     def rerank(
         self,

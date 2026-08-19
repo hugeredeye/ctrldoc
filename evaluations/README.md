@@ -12,6 +12,8 @@ Schema `2.0` makes every case workspace-independent and contains:
 - exact positive EvidenceSpans with authority, source type, document version, temporal validity and
   locator;
 - explicit hard-negative EvidenceSpans and their annotation reason;
+- optional explicit hard-negative error tags for version, temporal, roadmap, authority, conflict
+  and non-entailment slices;
 - a gold compliance outcome for every atomic requirement (`COMPLY`, `PARTIAL`, `GAP`, `UNKNOWN`, or
   `NEEDS_CLARIFICATION`);
 - annotator, annotation version and provenance metadata.
@@ -63,3 +65,58 @@ replace it through the `EmbeddingModel` interface without changing gold data, me
 Each serialized run records dataset version/hash, run ID, implementation and model identifiers,
 parameters, seed, Git commit when available, candidate counts, per-query latency, ranked provenance,
 Recall@1/3/5, MRR and nDCG@1/3/5.
+
+## External semantic-retrieval datasets
+
+Real Stage 2.2 datasets are never checked in. Keep separately reviewed dataset files for development
+and test, both using GoldDataset `2.0`:
+
+```text
+<restricted-root>/semantic-retrieval/dev/dataset.json
+<restricted-root>/semantic-retrieval/test/dataset.json
+```
+
+The development dataset may be used to choose RRF weights or candidate N. Record its SHA-256 in the
+experiment configuration. Freeze the configuration before opening the test dataset. Test positives,
+hard negatives and test metrics must never be used for tuning. Stage 2.2 performs no model fitting,
+and there is currently no training split consumer.
+
+The external dataset should contain manually reviewed Russian, English and mixed-terminology cases,
+including wrong ProductVersion, obsolete sources, roadmap-only claims, non-entailing semantic
+matches, conflicts, authority differences and temporal-validity errors. Annotators should set
+explicit `error_tags` for applicable slices. Missing tags remain unavailable; the evaluator does not
+infer gold labels.
+
+No manually reviewed external dataset is present in this repository. Therefore real BM25-versus-
+neural retrieval quality is not yet established.
+
+## Stage 2.2 pinned neural experiment
+
+Install the isolated CPU research stack without changing production dependencies:
+
+```text
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.1.2+cpu
+python -m pip install -e ".[research]"
+```
+
+Pinned configuration: `config/semantic-retrieval-v1.json`.
+
+- embedding: `intfloat/multilingual-e5-large-instruct` at
+  `84344a23ee1820ac951bc365f1e91d094a911763`;
+- reranker: `BAAI/bge-reranker-v2-m3` at
+  `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`;
+- both weight and model-config SHA-256 values are verified before load;
+- configuration defaults to offline loading and never falls back to feature hashing.
+
+Acquire artifacts explicitly while network access is permitted, using the exact revisions, then run
+with `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`. Execute an external experiment:
+
+```text
+python -m ctrl_v2.evaluation.semantic_runner \
+  <external-test-dataset.json> evaluations/config/semantic-retrieval-v1.json \
+  --output runtime/evaluations/semantic-result.json
+```
+
+The four reported methods are BM25, neural dense, hybrid RRF, and hybrid top-N plus cross-encoder
+reranking. Reports include mean/p50/p95 total latency, retrieval/reranking phase latency, corpus and
+candidate sizes, exact model identities and error slices.

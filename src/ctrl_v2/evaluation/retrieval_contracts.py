@@ -57,10 +57,11 @@ class RetrievedEvidenceSpan(RetrievalModel):
     method: str = Field(min_length=1)
     lexical_score: float | None = None
     dense_score: float | None = None
+    reranker_score: float | None = None
 
     @model_validator(mode="after")
     def validate_scores(self) -> RetrievedEvidenceSpan:
-        values = (self.score, self.lexical_score, self.dense_score)
+        values = (self.score, self.lexical_score, self.dense_score, self.reranker_score)
         if any(value is not None and not math.isfinite(value) for value in values):
             raise ValueError("retrieval scores must be finite")
         return self
@@ -75,6 +76,13 @@ class EmbeddingModel(Protocol):
     def parameters(self) -> Mapping[str, JsonScalar]: ...
 
     def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
+
+
+@runtime_checkable
+class AsymmetricEmbeddingModel(EmbeddingModel, Protocol):
+    def embed_queries(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
+
+    def embed_documents(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
 
 
 @runtime_checkable
@@ -103,6 +111,12 @@ class EvidenceRetriever(Protocol):
 class EvidenceReranker(Protocol):
     @property
     def implementation_id(self) -> str: ...
+
+    @property
+    def model_id(self) -> str | None: ...
+
+    @property
+    def parameters(self) -> Mapping[str, JsonScalar]: ...
 
     def rerank(
         self,
