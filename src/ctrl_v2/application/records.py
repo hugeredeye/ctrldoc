@@ -56,6 +56,7 @@ class DocumentVersionRecord:
     document_id: str
     object_key: str
     sha256: str
+    size_bytes: int
     media_type: str
     published_at: date | None
 
@@ -156,6 +157,8 @@ class EvidenceRecord:
     authority_level: str
     valid_from: date | None
     valid_to: date | None
+    supersedes_id: str | None
+    created_by_principal_id: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,11 +197,14 @@ class DecisionEvidenceRecord:
 
 @dataclass(frozen=True, slots=True)
 class SnapshotEvidenceRecord:
+    evidence_id: str
     evidence_span_id: str
     source_type: str
     authority_level: str
     document_version_id: str
+    document_object_key: str
     document_sha256: str
+    document_size_bytes: int
     locator: dict[str, Any]
     exact_quote: str
     valid_from: date | None

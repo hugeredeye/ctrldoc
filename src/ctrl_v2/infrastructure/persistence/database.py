@@ -6,7 +6,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
-EXPECTED_ALEMBIC_REVISION = "c7a0e11f6b42"
+EXPECTED_ALEMBIC_REVISION = "e31f7a9c2b64"
 OWNER_ROLE = "ctrl_v2_owner"
 RUNTIME_ROLE = "ctrl_v2_runtime"
 TENANT_TABLES = frozenset(
@@ -45,7 +45,16 @@ REQUIRED_TRIGGERS = {
     "approved_decision_requires_evidence": "compliance_decisions",
     "approved_decisions_immutable": "compliance_decisions",
     "document_versions_immutable": "document_versions",
-    "response_snapshot_immutable": "responses",
+    "evidence_document_blocks_immutable": "document_blocks",
+    "evidence_document_representations_immutable": "document_representations",
+    "evidence_requires_actor": "evidence",
+    "human_reviews_append_only": "human_reviews",
+    "referenced_evidence_immutable": "evidence",
+    "referenced_evidence_spans_immutable": "evidence_spans",
+    "response_exports_append_only": "response_exports",
+    "response_items_append_only": "response_items",
+    "response_items_require_provenance": "response_items",
+    "responses_append_only": "responses",
 }
 
 
@@ -223,6 +232,32 @@ class Database:
             if invalid_functions:
                 errors.append(
                     f"functions not owned by {OWNER_ROLE}: {', '.join(invalid_functions)}"
+                )
+            executable_boundary_functions = sorted(
+                connection.scalars(
+                    text(
+                        """
+                        SELECT p.proname
+                        FROM pg_proc p
+                        JOIN pg_namespace n ON n.oid = p.pronamespace
+                        WHERE n.nspname = 'public'
+                          AND p.proname LIKE 'ctrl_%'
+                          AND (
+                            has_function_privilege(
+                                'ctrl_v2_runtime', p.oid, 'EXECUTE'
+                            )
+                            OR has_function_privilege(
+                                'ctrl_v2_migrator', p.oid, 'EXECUTE'
+                            )
+                          )
+                        """
+                    )
+                )
+            )
+            if executable_boundary_functions:
+                errors.append(
+                    "database boundary functions executable by runtime/migrator: "
+                    + ", ".join(executable_boundary_functions)
                 )
 
             policy_rows = connection.execute(

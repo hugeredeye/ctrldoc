@@ -87,6 +87,7 @@ class EvidenceSpanCreate(ApiModel):
     document_block_id: str
     start_offset: int = Field(ge=0)
     end_offset: int = Field(gt=0)
+    supersedes_evidence_id: str | None = None
 
 
 class DecisionCreate(ApiModel):

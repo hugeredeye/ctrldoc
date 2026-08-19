@@ -19,6 +19,7 @@ from ctrl_v2.domain.exceptions import (
     DomainError,
     InvariantViolation,
     NotFoundError,
+    ObjectIntegrityError,
 )
 from ctrl_v2.infrastructure.authentication import (
     DevelopmentIdentityVerifier,
@@ -217,6 +218,21 @@ def create_app(settings: Settings) -> FastAPI:
                 "detail": "Access denied",
             },
             status_code=403,
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(ObjectIntegrityError)
+    async def object_integrity_error_handler(
+        _: Request, __: ObjectIntegrityError
+    ) -> JSONResponse:
+        return JSONResponse(
+            content={
+                "type": "object-integrity-error",
+                "title": "Stored object integrity failure",
+                "status": 409,
+                "detail": "Stored object failed integrity verification",
+            },
+            status_code=409,
             media_type="application/problem+json",
         )
 
@@ -426,10 +442,14 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/api/v1/workspaces/{workspace_id}/evidence-spans", status_code=201)
     def create_evidence_span(
-        request: Request, workspace_id: str, body: EvidenceSpanCreate, _: EditorAccess
+        request: Request, workspace_id: str, body: EvidenceSpanCreate, access: EditorAccess
     ) -> dict[str, Any]:
         values = body.model_dump()
-        return _workflow(request).create_evidence_span(workspace_id=workspace_id, **values)
+        return _workflow(request).create_evidence_span(
+            workspace_id=workspace_id,
+            created_by_principal_id=access.principal.id,
+            **values,
+        )
 
     @app.post("/api/v1/workspaces/{workspace_id}/compliance-decisions", status_code=201)
     def create_decision(

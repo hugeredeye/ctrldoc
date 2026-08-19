@@ -13,7 +13,11 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError
 
 from ctrl_v2.infrastructure.persistence import DatabaseReadinessError
-from ctrl_v2.infrastructure.persistence.database import REQUIRED_TRIGGERS, TENANT_TABLES
+from ctrl_v2.infrastructure.persistence.database import (
+    EXPECTED_ALEMBIC_REVISION,
+    REQUIRED_TRIGGERS,
+    TENANT_TABLES,
+)
 from ctrl_v2.interfaces.http.app import create_app
 from ctrl_v2.interfaces.http.config import Settings
 from tests.conftest import PostgreSQLTestUrls
@@ -168,7 +172,8 @@ def test_wrong_alembic_revision_fails_startup(postgres_urls, tmp_path):
     finally:
         with admin_engine.begin() as connection:
             connection.execute(
-                text("UPDATE alembic_version SET version_num = 'c7a0e11f6b42'")
+                text("UPDATE alembic_version SET version_num = :revision"),
+                {"revision": EXPECTED_ALEMBIC_REVISION},
             )
         admin_engine.dispose()
 

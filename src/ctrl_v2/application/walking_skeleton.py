@@ -111,15 +111,26 @@ class Stage1Workflow:
             raise ConflictError("The upload exceeds the configured size limit")
         if kind == "PRODUCT_KNOWLEDGE" and published_at is None:
             raise ConflictError("Product knowledge requires a publication date")
-        parsed_blocks = self.parser.parse(filename, media_type, content)
-        if not parsed_blocks:
-            raise ConflictError("No textual content could be parsed from the document")
-
         document_id = _new_id()
         version_id = _new_id()
         representation_id = _new_id()
         digest = _hash(content)
         object_key = f"{workspace_id}/documents/{version_id}/{digest}"
+        self.storage.put(
+            object_key,
+            BytesIO(content),
+            expected_sha256=digest,
+            expected_size_bytes=len(content),
+        )
+        trusted_content = self.storage.get(
+            object_key,
+            expected_sha256=digest,
+            expected_size_bytes=len(content),
+        )
+        parsed_blocks = self.parser.parse(filename, media_type, trusted_content)
+        if not parsed_blocks:
+            raise ConflictError("No textual content could be parsed from the document")
+
         content_hash = _hash("\n".join(block.text for block in parsed_blocks).encode("utf-8"))
         blocks = tuple(
             BlockInsert(
@@ -153,7 +164,6 @@ class Stage1Workflow:
                 content_hash=content_hash,
                 blocks=blocks,
             )
-            self.storage.put(object_key, BytesIO(content))
             uow.commit()
         return {
             "document_id": uploaded.document_id,
@@ -179,7 +189,14 @@ class Stage1Workflow:
     def get_document_content(self, workspace_id: str, version_id: str) -> tuple[bytes, str]:
         with self.uow_factory(workspace_id) as uow:
             version = _required(uow.repo.get_document_version(version_id), "DocumentVersion")
-        return self.storage.get(version.object_key), version.media_type
+        return (
+            self.storage.get(
+                version.object_key,
+                expected_sha256=version.sha256,
+                expected_size_bytes=version.size_bytes,
+            ),
+            version.media_type,
+        )
 
     def create_rfp(
         self,
@@ -386,6 +403,8 @@ class Stage1Workflow:
         document_block_id: str,
         start_offset: int,
         end_offset: int,
+        supersedes_evidence_id: str | None,
+        created_by_principal_id: str,
     ) -> dict[str, Any]:
         if valid_from is None:
             raise ConflictError("Evidence requires a temporal valid_from boundary")
@@ -394,6 +413,18 @@ class Stage1Workflow:
         with self.uow_factory(workspace_id) as uow:
             _required(uow.repo.get_requirement(requirement_id), "Requirement")
             _required(uow.repo.get_product_version(product_version_id), "ProductVersion")
+            if supersedes_evidence_id is not None:
+                superseded = _required(
+                    uow.repo.get_evidence(supersedes_evidence_id),
+                    "Superseded Evidence",
+                )
+                if (
+                    superseded.requirement_id != requirement_id
+                    or superseded.product_version_id != product_version_id
+                ):
+                    raise ConflictError(
+                        "Evidence correction must preserve requirement and ProductVersion scope"
+                    )
             version = _required(
                 uow.repo.get_document_version(document_version_id), "DocumentVersion"
             )
@@ -430,6 +461,8 @@ class Stage1Workflow:
                 exact_quote=exact_quote,
                 quote_hash=_hash(exact_quote.encode("utf-8")),
                 format_locator=block.format_locator,
+                supersedes_evidence_id=supersedes_evidence_id,
+                created_by_principal_id=created_by_principal_id,
             )
             uow.commit()
         return {
@@ -442,6 +475,8 @@ class Stage1Workflow:
             "source_type": evidence.source_type,
             "valid_from": evidence.valid_from,
             "valid_to": evidence.valid_to,
+            "supersedes_evidence_id": evidence.supersedes_id,
+            "created_by_principal_id": evidence.created_by_principal_id,
         }
 
     def create_decision(
@@ -736,6 +771,12 @@ class Stage1Workflow:
     @staticmethod
     def _snapshot_item(item: SnapshotItemRecord) -> dict[str, Any]:
         decision = item.decision
+        if (
+            ComplianceOutcome(decision.outcome)
+            in {ComplianceOutcome.COMPLY, ComplianceOutcome.PARTIAL}
+            and not item.evidence
+        ):
+            raise ConflictError("Positive decision provenance chain is incomplete")
         return {
             "requirement_id": item.requirement.id,
             "source_order": item.requirement.source_order,
@@ -753,11 +794,14 @@ class Stage1Workflow:
             "approved_at": decision.approved_at.isoformat() if decision.approved_at else "",
             "evidence": [
                 {
+                    "evidence_id": evidence.evidence_id,
                     "evidence_span_id": evidence.evidence_span_id,
                     "source_type": evidence.source_type,
                     "authority_level": evidence.authority_level,
                     "document_version_id": evidence.document_version_id,
+                    "document_object_key": evidence.document_object_key,
                     "document_sha256": evidence.document_sha256,
+                    "document_size_bytes": evidence.document_size_bytes,
                     "locator": evidence.locator,
                     "locator_canonical": json.dumps(
                         evidence.locator,
@@ -784,7 +828,12 @@ class Stage1Workflow:
             object_key = (
                 f"{workspace_id}/exports/{response.id}/{digest}.{self.exporter.format.lower()}"
             )
-            self.storage.put(object_key, BytesIO(payload))
+            self.storage.put(
+                object_key,
+                BytesIO(payload),
+                expected_sha256=digest,
+                expected_size_bytes=len(payload),
+            )
             export = uow.repo.create_response_export(
                 response_id=response.id,
                 format=self.exporter.format,
@@ -798,7 +847,11 @@ class Stage1Workflow:
     def get_export_content(self, workspace_id: str, export_id: str) -> bytes:
         with self.uow_factory(workspace_id) as uow:
             export = _required(uow.repo.get_export(export_id), "ResponseExport")
-        return self.storage.get(export.object_key)
+        return self.storage.get(
+            export.object_key,
+            expected_sha256=export.sha256,
+            expected_size_bytes=export.size_bytes,
+        )
 
     @staticmethod
     def _record_dict(workspace_id: str, record: Any, *fields: str) -> dict[str, Any]:

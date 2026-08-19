@@ -20,3 +20,7 @@ class AuthenticationError(DomainError):
 
 class AuthorizationError(DomainError):
     pass
+
+
+class ObjectIntegrityError(InvariantViolation):
+    """Stored bytes do not match their immutable identity or expected metadata."""

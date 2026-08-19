@@ -177,6 +177,8 @@ class Stage1Repository(Protocol):
         exact_quote: str,
         quote_hash: str,
         format_locator: dict[str, Any],
+        supersedes_evidence_id: str | None,
+        created_by_principal_id: str,
     ) -> tuple[EvidenceRecord, EvidenceSpanRecord]: ...
 
     def get_evidence_span(self, span_id: str) -> EvidenceSpanRecord | None: ...

@@ -103,6 +103,15 @@ class DocumentVersion(WorkspaceEntity, Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint("workspace_id", "document_id", "version_no"),
+        CheckConstraint(
+            "sha256 ~ '^[0-9a-f]{64}$'",
+            name="document_versions_sha256_format",
+        ),
+        CheckConstraint("size_bytes > 0", name="document_versions_positive_size"),
+        CheckConstraint(
+            "position(sha256 in object_key) > 0",
+            name="document_versions_object_key_binds_sha256",
+        ),
     )
 
     document_id: Mapped[str] = mapped_column(String(36))
@@ -343,6 +352,19 @@ class Evidence(WorkspaceEntity, Base):
             ["workspace_id", "product_version_id"],
             ["product_versions.workspace_id", "product_versions.id"],
         ),
+        ForeignKeyConstraint(
+            ["workspace_id", "supersedes_id"],
+            ["evidence.workspace_id", "evidence.id"],
+        ),
+        UniqueConstraint(
+            "workspace_id",
+            "supersedes_id",
+            name="evidence_supersedes_once",
+        ),
+        CheckConstraint(
+            "supersedes_id IS NULL OR supersedes_id <> id",
+            name="evidence_not_self_superseding",
+        ),
     )
 
     requirement_id: Mapped[str] = mapped_column(String(36))
@@ -354,6 +376,10 @@ class Evidence(WorkspaceEntity, Base):
     valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="VERIFIED")
     retrieval_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    supersedes_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_by_principal_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("principals.id"), nullable=True
+    )
 
 
 class EvidenceSpan(WorkspaceEntity, Base):
@@ -558,6 +584,15 @@ class ResponseExport(WorkspaceEntity, Base):
             ["workspace_id", "response_id"],
             ["responses.workspace_id", "responses.id"],
             ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "sha256 ~ '^[0-9a-f]{64}$'",
+            name="response_exports_sha256_format",
+        ),
+        CheckConstraint("size_bytes > 0", name="response_exports_positive_size"),
+        CheckConstraint(
+            "position(sha256 in object_key) > 0",
+            name="response_exports_object_key_binds_sha256",
         ),
     )
 

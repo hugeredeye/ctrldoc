@@ -28,8 +28,10 @@ The test suite requires `TEST_DATABASE_ADMIN_URL`, `TEST_DATABASE_MIGRATOR_URL`,
 complete Alembic history as `ctrl_v2_migrator`, and exercise the application as
 `ctrl_v2_runtime`. SQLite is not a supported runtime or migration backend.
 
-Uploaded documents and exports are held behind `ObjectStorage`; the local adapter writes to a
-private runtime directory that FastAPI never mounts as static content.
+Uploaded documents and exports are held behind `ObjectStorage`; the local adapter writes
+create-only content-bound objects to a private runtime directory that FastAPI never mounts as
+static content. Every trusted read verifies both SHA-256 and byte size against immutable database
+metadata. A mismatch fails closed with an object-integrity error.
 
 Production authentication validates signed OIDC tokens against an explicit issuer, audience and
 JWKS trust boundary. Verified issuer/subject pairs resolve to persisted principals; every
@@ -40,6 +42,10 @@ Existing pre-authentication workspaces receive no implicit membership during mig
 configured provisioning operator may use the one-time `bootstrap-admin` operation only while the
 workspace has no active administrator; new workspaces automatically make their operator creator
 the initial administrator.
+
+Production also requires explicit confirmation that the deployment provides encryption at rest
+for PostgreSQL and the object-storage volume/backend. These configuration gates do not claim
+application-layer encryption; verify the actual infrastructure before enabling them.
 
 Evaluation gold cases are always manually curated. See `evaluations/README.md`; the authoring CLI
 can initialize, validate, and append reviewed cases, but cannot synthesize them.

@@ -28,6 +28,8 @@ def oidc_client(postgres_urls, tmp_path):
         oidc_audience=issuer.audience,
         oidc_jwks_json=issuer.jwks_json,
         provisioning_principals={f"{issuer.issuer}|operator"},
+        postgres_encryption_at_rest_confirmed=True,
+        object_storage_encryption_at_rest_confirmed=True,
     )
     with TestClient(create_app(settings)) as test_client:
         yield test_client, issuer
@@ -150,6 +152,22 @@ def test_production_rejects_unsafe_oidc_configuration(postgres_urls, tmp_path):
             oidc_issuer="http://identity.invalid/",
             oidc_audience="ctrl-v2",
             oidc_jwks_url="http://identity.invalid/jwks",
+        )
+
+
+def test_production_requires_deployment_layer_encryption_confirmation(
+    postgres_urls, tmp_path
+):
+    issuer = TokenIssuer()
+    with pytest.raises(ValidationError, match="encryption at rest"):
+        Settings(
+            database_url=postgres_urls.runtime,
+            object_storage_root=tmp_path,
+            environment="production",
+            auth_mode="oidc",
+            oidc_issuer=issuer.issuer,
+            oidc_audience=issuer.audience,
+            oidc_jwks_json=issuer.jwks_json,
         )
 
 

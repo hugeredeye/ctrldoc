@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     oidc_allowed_algorithms: tuple[str, ...] = ("RS256",)
     oidc_principal_type_claim: str = "principal_type"
     provisioning_principals: frozenset[str] = frozenset()
+    postgres_encryption_at_rest_confirmed: bool = False
+    object_storage_encryption_at_rest_confirmed: bool = False
 
     @model_validator(mode="after")
     def validate_production_database_boundary(self) -> Settings:
@@ -70,4 +72,12 @@ class Settings(BaseSettings):
             issuer, separator, subject = principal.partition("|")
             if not separator or not issuer or not subject or "\n" in principal:
                 raise ValueError("PROVISIONING_PRINCIPALS contains an invalid identity")
+        if self.environment == "production" and not (
+            self.postgres_encryption_at_rest_confirmed
+            and self.object_storage_encryption_at_rest_confirmed
+        ):
+            raise ValueError(
+                "Production requires deployment-layer encryption at rest for PostgreSQL "
+                "and object storage"
+            )
         return self

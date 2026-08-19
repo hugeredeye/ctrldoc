@@ -66,6 +66,8 @@ erDiagram
     PRODUCT_VERSION ||--o{ REQUIREMENT_MAPPING : target
     CAPABILITY ||--o{ REQUIREMENT_MAPPING : target
     REQUIREMENT ||--o{ EVIDENCE : evaluated_with
+    PRINCIPAL ||--o{ EVIDENCE : creates
+    EVIDENCE o|--o| EVIDENCE : supersedes
     EVIDENCE ||--o{ EVIDENCE_SPAN : cited_by
     DOCUMENT_VERSION ||--o{ EVIDENCE_SPAN : exact_version
     DOCUMENT_BLOCK ||--o{ EVIDENCE_SPAN : exact_location
@@ -117,11 +119,22 @@ keys for domain relations. PostgreSQL migration enables and forces RLS using a t
 The migrations also install PostgreSQL triggers for:
 
 - immutable DocumentVersion;
+- immutable DocumentRepresentation and DocumentBlock once used by Evidence;
+- immutable Evidence and EvidenceSpan once referenced by a decision;
 - immutable approved ComplianceDecision;
 - immutable evidence links of an approved decision;
 - deferred enforcement that APPROVED COMPLY/PARTIAL has an EvidenceSpan resolving to an exact
   DocumentVersion;
-- immutable Response snapshot content and hash.
+- actor attribution for every newly inserted Evidence correction;
+- append-only HumanReview, Response, ResponseItem and ResponseExport;
+- deferred validation that every ResponseItem points to an approved decision and that positive
+  decisions retain a complete relational provenance chain.
+
+Evidence corrections create a new Evidence/EvidenceSpan pair and may reference exactly one prior
+Evidence through `supersedes_id`; the prior row is never rewritten. Historical Evidence rows from
+before this boundary retain a null actor explicitly rather than receiving fabricated attribution.
+All new Evidence inserts require an authenticated Principal through both the application contract
+and a PostgreSQL trigger.
 
 Docker Compose separates a bootstrap administrator from a `NOSUPERUSER`, `NOCREATEDB`,
 `NOCREATEROLE` application role. Both clean Alembic migration and PostgreSQL-specific integration
@@ -159,3 +172,17 @@ The frontend runtime is outside Stage 1. Its stable information architecture is:
 
 The Workbench supports evidence highlighting, confidence/risk filtering, targeted intervention,
 and batch approval of eligible LOW-risk decisions.
+
+## Production data-at-rest boundary
+
+CTRL does not implement application-layer encryption or custom cryptography. Production startup
+requires explicit deployment attestations that both PostgreSQL storage and the object-storage
+volume/backend are encrypted at rest. These flags are operational gates, not cryptographic proof;
+the deployment runbook must verify them against the selected infrastructure before setting them.
+Backups must later receive equivalent protection.
+
+The local filesystem adapter is create-only, publishes same-filesystem temporary files atomically,
+and verifies SHA-256 plus byte size on every trusted read. Its root/directories are restricted to
+the service account where the host filesystem supports POSIX-style modes. Production must mount
+that root privately and grant the runtime service account only the minimum required filesystem
+permissions. It must never be exposed as a static/public file mount.

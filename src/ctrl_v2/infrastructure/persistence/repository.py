@@ -507,6 +507,8 @@ class SqlAlchemyStage1Repository:
         exact_quote: str,
         quote_hash: str,
         format_locator: dict[str, Any],
+        supersedes_evidence_id: str | None,
+        created_by_principal_id: str,
     ) -> tuple[EvidenceRecord, EvidenceSpanRecord]:
         workspace_id = self._tenant_id()
         evidence = Evidence(
@@ -519,6 +521,8 @@ class SqlAlchemyStage1Repository:
             valid_from=valid_from,
             valid_to=valid_to,
             status="VERIFIED",
+            supersedes_id=supersedes_evidence_id,
+            created_by_principal_id=created_by_principal_id,
         )
         self.session.add(evidence)
         self.session.flush()
@@ -765,11 +769,14 @@ class SqlAlchemyStage1Repository:
             capability=self._capability(capability_row),
             evidence=tuple(
                 SnapshotEvidenceRecord(
+                    evidence_id=evidence.id,
                     evidence_span_id=span.id,
                     source_type=evidence.source_type,
                     authority_level=evidence.authority_level,
                     document_version_id=span.document_version_id,
+                    document_object_key=document_version.object_key,
                     document_sha256=document_version.sha256,
+                    document_size_bytes=document_version.size_bytes,
                     locator=dict(span.format_locator),
                     exact_quote=span.exact_quote,
                     valid_from=evidence.valid_from,
@@ -846,8 +853,6 @@ class SqlAlchemyStage1Repository:
             size_bytes=size_bytes,
         )
         self.session.add(row)
-        response = self._required(self._get(Response, response_id), "Response")
-        response.status = "EXPORTED"
         self.session.flush()
         return self._export(row)
 
@@ -887,6 +892,7 @@ class SqlAlchemyStage1Repository:
             row.document_id,
             row.object_key,
             row.sha256,
+            row.size_bytes,
             row.media_type,
             row.published_at,
         )
@@ -984,6 +990,8 @@ class SqlAlchemyStage1Repository:
             row.authority_level,
             row.valid_from,
             row.valid_to,
+            row.supersedes_id,
+            row.created_by_principal_id,
         )
 
     @staticmethod

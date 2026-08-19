@@ -7,6 +7,10 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 from ctrl_v2.infrastructure.persistence import Database, SqlAlchemyUnitOfWorkFactory
+from ctrl_v2.infrastructure.persistence.database import (
+    EXPECTED_ALEMBIC_REVISION,
+    REQUIRED_TRIGGERS,
+)
 from tests.helpers import Journey
 
 pytestmark = pytest.mark.postgres
@@ -38,11 +42,9 @@ def test_alembic_migration_on_clean_postgresql(postgresql_url: str):
                 connection.scalars(
                     text(
                         "SELECT tgname FROM pg_trigger "
-                        "WHERE NOT tgisinternal AND tgname IN "
-                        "('document_versions_immutable', 'approved_decisions_immutable', "
-                        "'approved_decision_requires_evidence', "
-                        "'approved_decision_links_immutable', 'response_snapshot_immutable')"
-                    )
+                        "WHERE NOT tgisinternal AND tgname = ANY(:trigger_names)"
+                    ),
+                    {"trigger_names": list(REQUIRED_TRIGGERS)},
                 )
             )
             role = connection.execute(
@@ -51,19 +53,13 @@ def test_alembic_migration_on_clean_postgresql(postgresql_url: str):
                     "WHERE rolname = current_user"
                 )
             ).one()
-        assert revision == "c7a0e11f6b42"
+        assert revision == EXPECTED_ALEMBIC_REVISION
         assert role.current_user == "ctrl_v2_runtime"
         assert role.rolsuper is False
         assert role.rolbypassrls is False
         assert len(inspect(engine).get_table_names()) == 30
         assert policies == 27
-        assert triggers == {
-            "document_versions_immutable",
-            "approved_decisions_immutable",
-            "approved_decision_requires_evidence",
-            "approved_decision_links_immutable",
-            "response_snapshot_immutable",
-        }
+        assert triggers == set(REQUIRED_TRIGGERS)
     finally:
         engine.dispose()
 
@@ -217,7 +213,7 @@ def test_response_snapshot_is_immutable_in_postgresql(pg_client, postgresql_url:
         with engine.connect() as connection:
             transaction = connection.begin()
             _set_workspace(connection, journey.workspace_id)
-            with pytest.raises(DBAPIError, match="Response snapshot is immutable"):
+            with pytest.raises(DBAPIError, match="responses is append-only"):
                 connection.execute(
                     text(
                         "UPDATE responses SET snapshot_hash = :hash "
