@@ -42,6 +42,7 @@ research = [
 
 [project.scripts]
 ctrl-api = "ctrl_v2.interfaces.http.app:run"
+ctrl-deepseek-smoke = "ctrl_v2.evaluation.deepseek_llm_smoke:main"
 ctrl-intelligence-demo = "ctrl_v2.evaluation.product_intelligence_demo:main"
 
 [tool.hatch.build.targets.wheel]

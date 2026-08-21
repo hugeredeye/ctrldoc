@@ -58,3 +58,8 @@ are deterministic and dependency-free. Pass
 `--semantic-config evaluations/config/semantic-retrieval-v1.json` to opt into the existing pinned
 E5/BGE research stack. The separate real OpenAI smoke is explicit and research-only; see
 `docs/stage2-product-intelligence.md`.
+
+Stage 2.5 adds an official DeepSeek V4 Pro research adapter behind the same extractor/verifier
+contracts. It is not production-wired and refuses confidential, restricted, personal, and customer
+confidential classifications before serialization or network access. See
+`docs/stage2-deepseek-provider.md` for the public-safe opt-in smoke procedure.

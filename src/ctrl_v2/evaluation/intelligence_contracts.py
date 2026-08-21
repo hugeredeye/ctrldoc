@@ -19,9 +19,13 @@ class IntelligenceModel(BaseModel):
 
 class DataClassification(StrEnum):
     PUBLIC = "PUBLIC"
+    DEMO = "DEMO"
     SYNTHETIC = "SYNTHETIC"
+    SYNTHETIC_SAFE = "SYNTHETIC_SAFE"
     CONFIDENTIAL = "CONFIDENTIAL"
     RESTRICTED = "RESTRICTED"
+    PERSONAL_DATA = "PERSONAL_DATA"
+    CUSTOMER_CONFIDENTIAL = "CUSTOMER_CONFIDENTIAL"
 
 
 class RequirementModality(StrEnum):
@@ -95,6 +99,21 @@ class TokenUsage(IntelligenceModel):
     total_tokens: int | None = Field(default=None, ge=0)
 
 
+class ProviderCallConfiguration(IntelligenceModel):
+    api_style: str = Field(min_length=1)
+    base_url: str = Field(min_length=1)
+    endpoint_url: str | None = None
+    requested_model_id: str = Field(min_length=1)
+    thinking_enabled: bool | None = None
+    reasoning_effort: str | None = None
+    timeout_seconds: float = Field(gt=0)
+    max_output_tokens: int | None = Field(default=None, gt=0)
+    transport_max_retries: int = Field(default=0, ge=0)
+    output_max_retries: int = Field(default=0, ge=0)
+    json_mode: str = Field(min_length=1)
+    tools_enabled: bool
+
+
 class ModelCallRecord(IntelligenceModel):
     provider: str = Field(min_length=1)
     model_id: str = Field(min_length=1)
@@ -105,6 +124,9 @@ class ModelCallRecord(IntelligenceModel):
     output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     latency_ms: float = Field(ge=0)
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    retry_count: int = Field(default=0, ge=0)
+    failure_reasons: tuple[str, ...] = ()
+    provider_configuration: ProviderCallConfiguration | None = None
     estimated_cost: float | None = Field(default=None, ge=0)
     cost_currency: str | None = None
 

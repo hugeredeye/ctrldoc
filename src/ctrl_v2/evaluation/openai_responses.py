@@ -66,12 +66,19 @@ class OpenAIResearchConfig(BaseModel):
     api_key_environment_variable: str = Field(default="OPENAI_API_KEY", min_length=1)
     allowed_data_classifications: tuple[DataClassification, ...] = (
         DataClassification.PUBLIC,
+        DataClassification.DEMO,
         DataClassification.SYNTHETIC,
+        DataClassification.SYNTHETIC_SAFE,
     )
 
     @model_validator(mode="after")
     def reject_confidential_allow_list(self) -> OpenAIResearchConfig:
-        prohibited = {DataClassification.CONFIDENTIAL, DataClassification.RESTRICTED}
+        prohibited = {
+            DataClassification.CONFIDENTIAL,
+            DataClassification.RESTRICTED,
+            DataClassification.PERSONAL_DATA,
+            DataClassification.CUSTOMER_CONFIDENTIAL,
+        }
         if prohibited & set(self.allowed_data_classifications):
             raise ValueError("research adapter cannot allow confidential or restricted data")
         return self

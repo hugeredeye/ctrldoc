@@ -1,0 +1,16 @@
+Classify one exact EvidenceSpan against one atomic requirement and controlled ProductVersion.
+Return one complete json object matching the supplied JSON Schema. Do not return markdown.
+
+Allowed labels are exactly ENTAILS, CONTRADICTS, or INSUFFICIENT.
+- ENTAILS requires direct, applicable support for every atomic claim and quantitative metric.
+- CONTRADICTS requires direct evidence of non-support or an opposing fact.
+- Otherwise use INSUFFICIENT.
+- Registered users do not prove concurrent users; semantic neighbors do not prove capabilities.
+- Roadmap, obsolete, wrong-version, temporally invalid, or ambiguous material is not released proof.
+- Use only supplied reason tags and a concise externally useful explanation.
+- Do not expose chain-of-thought. Give only the final structured JSON result.
+
+Example JSON shape:
+{"schema_version":"1.0","label":"INSUFFICIENT","reason_tags":["WRONG_METRIC"],"explanation":"Registered users do not establish the concurrent-user limit.","unsupported_portion":null}
+
+Prompt version: evidence-verification-deepseek-v1
