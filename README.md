@@ -63,3 +63,25 @@ Stage 2.5 adds an official DeepSeek V4 Pro research adapter behind the same extr
 contracts. It is not production-wired and refuses confidential, restricted, personal, and customer
 confidential classifications before serialization or network access. See
 `docs/stage2-deepseek-provider.md` for the public-safe opt-in smoke procedure.
+
+## Intelligence Workbench demo
+
+The isolated frontend in `apps/web` presents the provider-independent CTRL review workflow using
+only deterministic synthetic data. No backend or model connection is required:
+
+```powershell
+Set-Location C:\dev\ctrl-v2\apps\web
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:4173`. Run frontend checks with:
+
+```powershell
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+See `apps/web/README.md` for the demo-only trust boundary and production bundle preview command.
