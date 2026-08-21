@@ -142,3 +142,15 @@ python -m ctrl_v2.evaluation.semantic_runner \
 The four reported methods are BM25, neural dense, hybrid RRF, and hybrid top-N plus cross-encoder
 reranking. Reports include mean/p50/p95 total latency, retrieval/reranking phase latency, corpus and
 candidate sizes, exact model identities and error slices.
+
+## Product-intelligence comparison records
+
+`IntelligenceComparisonRecord` provides one case-level format for manual, human plus general-purpose
+LLM, and CTRL pipeline runs. It records atomic keys, exact EvidenceSpan IDs, decision, wrong-version
+error, conflict detection, human correction, latency and optional cost/provider/model metadata. This
+is a schema boundary only; it does not implement or intentionally weaken a general-purpose baseline.
+
+Stage 2.4 can also project every atomic human-review result into the existing `ResearchTrace`
+contract. Mapping candidates, retrieved spans/scores, verifier provider/effective labels, conflicts,
+proposed decisions, provider/model identity, tokens, latency and optional cost are preserved. Cost
+is accepted only as observed metadata; pricing is not encoded in domain or policy logic.

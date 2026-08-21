@@ -8,8 +8,11 @@ Implemented path:
 `Workspace -> secure upload -> parsing -> Requirement -> Mapping -> EvidenceSpan ->
 ComplianceDecision -> human approval -> Response snapshot -> deterministic XLSX`
 
-AI extraction, automated mapping, retrieval, contradiction detection and capability bootstrap
-are deliberately represented only by versioned contracts/ports. They are not implemented.
+Stage 2 research code now includes an offline product-intelligence vertical slice: versioned atomic
+extraction and evidence-verification contracts, controlled-catalog mapping, the existing retrieval
+interfaces, deterministic provenance guardrails, conflict aggregation and a guarded compliance
+proposal. It is not wired into the production API and never auto-approves a decision. Capability
+bootstrap and autonomous processing remain unimplemented.
 
 ## Local setup
 
@@ -49,3 +52,9 @@ application-layer encryption; verify the actual infrastructure before enabling t
 
 Evaluation gold cases are always manually curated. See `evaluations/README.md`; the authoring CLI
 can initialize, validate, and append reviewed cases, but cannot synthesize them.
+
+The public/synthetic Stage 2.4 demo can be run with `ctrl-intelligence-demo`. Its default adapters
+are deterministic and dependency-free. Pass
+`--semantic-config evaluations/config/semantic-retrieval-v1.json` to opt into the existing pinned
+E5/BGE research stack. The separate real OpenAI smoke is explicit and research-only; see
+`docs/stage2-product-intelligence.md`.

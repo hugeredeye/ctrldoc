@@ -11,10 +11,15 @@ from .retrieval_contracts import RetrievalQuery, RetrievedEvidenceSpan
 
 
 class ResearchTraceModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, protected_namespaces=()
+    )
 
 
 class ResearchActionType(StrEnum):
+    EXTRACT = "EXTRACT"
+    MAP = "MAP"
+    RETRIEVE = "RETRIEVE"
     RETRIEVE_MORE = "RETRIEVE_MORE"
     RERANK = "RERANK"
     VERIFY = "VERIFY"
@@ -23,9 +28,26 @@ class ResearchActionType(StrEnum):
     SELECT_DECISION = "SELECT_DECISION"
 
 
+class ResearchMappingState(ResearchTraceModel):
+    product_id: str | None = None
+    product_version_id: str | None = None
+    capability_id: str | None = None
+    disposition: str
+    score: float | None = Field(default=None, ge=0, le=1)
+
+
+class ResearchVerificationState(ResearchTraceModel):
+    evidence_span_id: str
+    provider_label: str
+    effective_label: str
+    reason_tags: tuple[str, ...] = ()
+
+
 class ResearchState(ResearchTraceModel):
     requirement: RetrievalQuery
     retrieved_candidates: tuple[RetrievedEvidenceSpan, ...]
+    mapping_candidates: tuple[ResearchMappingState, ...] = ()
+    verifier_outputs: tuple[ResearchVerificationState, ...] = ()
     conflicts: tuple[str, ...] = ()
     uncertainty: float | None = Field(default=None, ge=0, le=1)
 
@@ -46,6 +68,11 @@ class ResearchOutcome(ResearchTraceModel):
     inference_cost: float | None = Field(default=None, ge=0)
     tool_cost: float | None = Field(default=None, ge=0)
     cost_currency: str | None = None
+    providers: tuple[str, ...] = ()
+    model_ids: tuple[str, ...] = ()
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
 
 
 class ResearchTrace(ResearchTraceModel):
