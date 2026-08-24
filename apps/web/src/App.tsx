@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import "./styles.css";
+
 import { DetailPanel } from "./components/DetailPanel";
 import { Icon } from "./components/Icon";
 import {
