@@ -5,6 +5,7 @@ import json
 import os
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from importlib import resources
 from typing import Any, Literal, Protocol, TypeVar
 
@@ -45,6 +46,23 @@ _PROHIBITED_CLASSIFICATIONS = {
 }
 
 
+@dataclass(frozen=True)
+class PydanticValidationIssue:
+    location: tuple[str | int, ...]
+    path: str
+    error_type: str
+    message: str
+
+
+@dataclass(frozen=True)
+class SchemaValidationDiagnostics:
+    schema_model: str
+    error_count: int
+    errors: tuple[PydanticValidationIssue, ...]
+    top_level_json_keys: tuple[str, ...]
+    canonical_output_sha256: str
+
+
 class DeepSeekResearchError(RuntimeError):
     def __init__(
         self,
@@ -53,12 +71,22 @@ class DeepSeekResearchError(RuntimeError):
         retry_count: int = 0,
         failure_reasons: tuple[str, ...] = (),
         latency_ms: float = 0.0,
+        finish_reason: str | None = None,
+        response_model: str | None = None,
+        token_usage: TokenUsage | None = None,
+        validation_diagnostics: SchemaValidationDiagnostics | None = None,
+        synthetic_output: object | None = None,
     ) -> None:
         super().__init__(f"DeepSeek research call failed safely: {failure_reason}")
         self.failure_reason = failure_reason
         self.retry_count = retry_count
         self.failure_reasons = failure_reasons or (failure_reason,)
         self.latency_ms = latency_ms
+        self.finish_reason = finish_reason
+        self.response_model = response_model
+        self.token_usage = token_usage or TokenUsage()
+        self.validation_diagnostics = validation_diagnostics
+        self.synthetic_output = synthetic_output
 
 
 class DeepSeekConfigurationError(DeepSeekResearchError):
@@ -99,8 +127,10 @@ class DeepSeekResearchConfig(BaseModel):
     )
 
     model_id: Literal["deepseek-v4-pro"] = DEFAULT_MODEL
+    experiment_mode: Literal["FAST", "REASONING"] | None = None
     thinking_enabled: bool = True
     reasoning_effort: Literal["low", "high", "max"] = "high"
+    temperature: float | None = Field(default=None, ge=0, le=2)
     timeout_seconds: float = Field(default=60.0, gt=0, le=300)
     max_output_tokens: int = Field(default=4096, gt=0)
     max_retries: int = Field(default=1, ge=0, le=3)
@@ -117,6 +147,14 @@ class DeepSeekResearchConfig(BaseModel):
         allowed = set(self.allowed_data_classifications)
         if allowed - _SAFE_CLASSIFICATIONS or allowed & _PROHIBITED_CLASSIFICATIONS:
             raise ValueError("DeepSeek research adapter can allow only public/demo/synthetic data")
+        if self.experiment_mode == "FAST" and self.thinking_enabled:
+            raise ValueError("FAST experiment mode requires thinking to be disabled")
+        if self.experiment_mode == "REASONING" and (
+            not self.thinking_enabled or self.reasoning_effort != "high"
+        ):
+            raise ValueError("REASONING experiment mode requires high thinking")
+        if self.thinking_enabled and self.temperature is not None:
+            raise ValueError("thinking mode does not support temperature")
         return self
 
 
@@ -162,6 +200,10 @@ def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def canonical_payload_sha256(payload: object) -> str:
+    return _sha256(_canonical_json(payload))
+
+
 def _load_prompt(filename: str, output_model: type[BaseModel]) -> str:
     semantic_prompt = (
         resources.files("ctrl_v2.evaluation.prompts")
@@ -181,9 +223,15 @@ def _usage(response: object) -> TokenUsage:
     usage = _attribute(response, "usage")
     if usage is None:
         return TokenUsage()
+    completion_details = _attribute(usage, "completion_tokens_details")
     return TokenUsage(
         input_tokens=_attribute(usage, "prompt_tokens"),
         output_tokens=_attribute(usage, "completion_tokens"),
+        reasoning_tokens=(
+            _attribute(completion_details, "reasoning_tokens")
+            if completion_details is not None
+            else None
+        ),
         total_tokens=_attribute(usage, "total_tokens"),
     )
 
@@ -197,7 +245,62 @@ def _sum_usage(usages: list[TokenUsage]) -> TokenUsage:
     return TokenUsage(
         input_tokens=total("input_tokens"),
         output_tokens=total("output_tokens"),
+        reasoning_tokens=total("reasoning_tokens"),
         total_tokens=total("total_tokens"),
+    )
+
+
+def _response_model(response: object) -> str | None:
+    model = _attribute(response, "model")
+    return model if isinstance(model, str) and model else None
+
+
+def _finish_reason(response: object) -> str | None:
+    choices = _attribute(response, "choices", ()) or ()
+    if not choices:
+        return None
+    value = _attribute(choices[0], "finish_reason")
+    return value if isinstance(value, str) and value else None
+
+
+def _validation_path(location: tuple[str | int, ...]) -> str:
+    path = "$"
+    for part in location:
+        if isinstance(part, int):
+            path += f"[{part}]"
+        elif part.isidentifier():
+            path += f".{part}"
+        else:
+            path += f"[{json.dumps(part, ensure_ascii=False)}]"
+    return path
+
+
+def _validation_diagnostics(
+    error: ValidationError,
+    *,
+    output_model: type[BaseModel],
+    parsed_output: object,
+) -> SchemaValidationDiagnostics:
+    issues: list[PydanticValidationIssue] = []
+    for item in error.errors(include_url=False, include_context=False, include_input=False):
+        location = tuple(item["loc"])
+        issues.append(
+            PydanticValidationIssue(
+                location=location,
+                path=_validation_path(location),
+                error_type=item["type"],
+                message=item["msg"][:300],
+            )
+        )
+    top_level_keys = (
+        tuple(sorted(parsed_output)) if isinstance(parsed_output, dict) else ()
+    )
+    return SchemaValidationDiagnostics(
+        schema_model=output_model.__name__,
+        error_count=len(issues),
+        errors=tuple(issues),
+        top_level_json_keys=top_level_keys,
+        canonical_output_sha256=_sha256(_canonical_json(parsed_output)),
     )
 
 
@@ -232,9 +335,22 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
         client: _DeepSeekClient | None = None,
         client_factory: Callable[..., _DeepSeekClient] | None = None,
         timer: Callable[[], float] = time.perf_counter,
+        synthetic_schema_debug_input_sha256: frozenset[str] = frozenset(),
     ) -> None:
         self.config = config or DeepSeekResearchConfig()
         self._timer = timer
+        self._synthetic_schema_debug_input_sha256 = synthetic_schema_debug_input_sha256
+        if any(
+            len(value) != 64 or any(character not in "0123456789abcdef" for character in value)
+            for value in synthetic_schema_debug_input_sha256
+        ):
+            raise DeepSeekConfigurationError("INVALID_SYNTHETIC_OUTPUT_DEBUG_HASH")
+        if synthetic_schema_debug_input_sha256 and set(
+            self.config.allowed_data_classifications
+        ) != {DataClassification.SYNTHETIC_SAFE}:
+            raise DeepSeekConfigurationError(
+                "SYNTHETIC_OUTPUT_DEBUG_REQUIRES_EXCLUSIVE_SYNTHETIC_SAFE"
+            )
         if client is not None and client_factory is not None:
             raise DeepSeekConfigurationError("CLIENT_AND_FACTORY_ARE_MUTUALLY_EXCLUSIVE")
         if client is None:
@@ -268,10 +384,12 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
             base_url=OFFICIAL_BASE_URL,
             endpoint_url=OFFICIAL_CHAT_COMPLETIONS_ENDPOINT,
             requested_model_id=self.config.model_id,
+            inference_mode=self.config.experiment_mode,
             thinking_enabled=self.config.thinking_enabled,
             reasoning_effort=(
                 self.config.reasoning_effort if self.config.thinking_enabled else "disabled"
             ),
+            temperature=self.config.temperature,
             timeout_seconds=self.config.timeout_seconds,
             max_output_tokens=self.config.max_output_tokens,
             transport_max_retries=0,
@@ -288,10 +406,13 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
         payload: object,
         output_model: type[StructuredOutputT],
         schema_version: str,
+        data_classification: DataClassification,
     ) -> tuple[StructuredOutputT, ModelCallRecord]:
         serialized_input = _canonical_json(payload)
         failure_reasons: list[str] = []
         usages: list[TokenUsage] = []
+        last_finish_reason: str | None = None
+        last_response_model: str | None = None
         started = self._timer()
         for attempt in range(self.config.max_retries + 1):
             request: dict[str, object] = {
@@ -313,6 +434,8 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
             }
             if self.config.thinking_enabled:
                 request["reasoning_effort"] = self.config.reasoning_effort
+            if self.config.temperature is not None:
+                request["temperature"] = self.config.temperature
             try:
                 response = self._client.chat.completions.create(**request)
             except Exception:
@@ -323,8 +446,13 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
                     retry_count=attempt,
                     failure_reasons=reasons,
                     latency_ms=latency_ms,
+                    finish_reason=last_finish_reason,
+                    response_model=last_response_model,
+                    token_usage=_sum_usage(usages),
                 ) from None
             usages.append(_usage(response))
+            last_finish_reason = _finish_reason(response)
+            last_response_model = _response_model(response)
             try:
                 content = _response_content(response)
             except _RetryableOutputError as exc:
@@ -342,6 +470,9 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
                     retry_count=attempt,
                     failure_reasons=tuple(failure_reasons),
                     latency_ms=latency_ms,
+                    finish_reason=last_finish_reason,
+                    response_model=last_response_model,
+                    token_usage=_sum_usage(usages),
                 ) from None
             except DeepSeekResearchError as exc:
                 latency_ms = max(self._timer() - started, 0.0) * 1000
@@ -350,25 +481,40 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
                     retry_count=attempt,
                     failure_reasons=(*failure_reasons, exc.failure_reason),
                     latency_ms=latency_ms,
+                    finish_reason=last_finish_reason,
+                    response_model=last_response_model,
+                    token_usage=_sum_usage(usages),
                 ) from None
             try:
                 parsed = output_model.model_validate_json(content)
-            except ValidationError:
+            except ValidationError as exc:
                 latency_ms = max(self._timer() - started, 0.0) * 1000
+                parsed_output = json.loads(content)
+                diagnostics = _validation_diagnostics(
+                    exc,
+                    output_model=output_model,
+                    parsed_output=parsed_output,
+                )
                 raise DeepSeekSchemaViolationError(
                     "SCHEMA_INVALID",
                     retry_count=attempt,
                     failure_reasons=(*failure_reasons, "SCHEMA_INVALID"),
                     latency_ms=latency_ms,
+                    finish_reason=last_finish_reason,
+                    response_model=last_response_model,
+                    token_usage=_sum_usage(usages),
+                    validation_diagnostics=diagnostics,
+                    synthetic_output=(
+                        parsed_output
+                        if _sha256(serialized_input)
+                        in self._synthetic_schema_debug_input_sha256
+                        and data_classification is DataClassification.SYNTHETIC_SAFE
+                        else None
+                    ),
                 ) from None
             latency_ms = max(self._timer() - started, 0.0) * 1000
             serialized_output = _canonical_json(parsed)
-            response_model = _attribute(response, "model")
-            actual_model = (
-                response_model
-                if isinstance(response_model, str) and response_model
-                else self.config.model_id
-            )
+            actual_model = last_response_model or self.config.model_id
             return parsed, ModelCallRecord(
                 provider="deepseek",
                 model_id=actual_model,
@@ -381,6 +527,7 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
                 ),
                 input_sha256=_sha256(serialized_input),
                 output_sha256=_sha256(serialized_output),
+                finish_reason=last_finish_reason,
                 latency_ms=latency_ms,
                 token_usage=_sum_usage(usages),
                 retry_count=attempt,
@@ -399,6 +546,7 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
             payload=requirement,
             output_model=AtomicExtractionOutput,
             schema_version="1.0",
+            data_classification=requirement.data_classification,
         )
         return AtomicExtractionResult(output=output, model_call=record)
 
@@ -415,4 +563,5 @@ class DeepSeekChatResearchAdapter(AtomicRequirementExtractor, EvidenceVerifier):
             payload=request,
             output_model=EvidenceVerificationOutput,
             schema_version="1.0",
+            data_classification=request.data_classification,
         )

@@ -19,6 +19,13 @@ Everything after inference remains provider-independent: extraction validation, 
 Capability mapping, per-requirement retrieval, reranking, provenance/version/authority/temporal
 guardrails, conflict aggregation, guarded-compliance-v1, and mandatory human review.
 
+Atomic extraction currently keeps provider-supplied character offsets in its `1.0` response schema
+for compatibility, but treats them only as diagnostics. CTRL resolves each exact `source_quote`
+inside the source unit identified by the authoritative locator and computes canonical Python string
+offsets. A missing or repeated exact quote is rejected; there is no fuzzy or cross-unit recovery.
+A future provider-contract version should omit offsets and request only the exact quote and locator,
+leaving all character counting to deterministic CTRL code.
+
 ## Official API boundary
 
 The adapter has a non-configurable official base URL, a constrained model ID, and no provider
@@ -37,6 +44,15 @@ of accepting its default. Research defaults are thinking enabled with `high` eff
 output tokens, a 60-second timeout, zero SDK transport retries, and at most one output retry.
 `low`, `high`, and `max` reasoning effort are configurable; disabled thinking omits
 `reasoning_effort` from the request.
+
+The provider defaults remain unchanged. The opt-in smoke has two explicit experiment profiles:
+
+- `FAST`: thinking disabled, 4,096 maximum output tokens;
+- `REASONING`: thinking enabled with `high` effort, 8,192 maximum output tokens.
+
+The smoke requires `--mode`; it does not infer a profile or silently change the adapter default.
+The effective thinking setting, effort, timeout, token budget, and retry bound are retained in each
+successful `ModelCallRecord.provider_configuration`.
 
 Official references:
 
@@ -65,10 +81,24 @@ JSON that violates the schema is not retried or repaired. Truncated output, unex
 API failures, missing credentials, and policy violations have distinct typed failures. There is no
 fallback to OpenAI or another provider and no failure can become a compliance decision.
 
+`TRUNCATED_OUTPUT` is emitted only when the SDK response reports
+`choices[0].finish_reason == "length"`. Content from such a response is rejected before JSON parsing
+or schema validation, even if the partial content happens to be syntactically valid JSON.
+
 The response's `reasoning_content` is ignored and never stored in `ModelCallRecord`. A successful
 record contains provider, actual and requested model IDs, prompt/schema versions, effective
 thinking configuration, timeout, output limit, retry bounds/count, privacy-safe input/output hashes,
-latency, token usage, and non-sensitive prior failure reason codes. Pricing is not encoded.
+finish reason, latency, prompt/completion/reasoning/total token usage, and non-sensitive prior
+failure reason codes. Typed provider failures retain the same available response metadata without
+retaining content or hidden reasoning. Pricing is not encoded.
+
+`SCHEMA_INVALID` also reports privacy-safe Pydantic diagnostics: schema model name, error count,
+locations and JSON paths, error types, concise messages, returned top-level keys, and the SHA-256 of
+the canonical JSON output. Raw output remains hidden by default. The smoke-only
+`--show-synthetic-output` switch may expose parsed JSON only for the CLI's built-in
+`SYNTHETIC_SAFE` fixtures; enabling it restricts the adapter to that classification exclusively.
+The adapter additionally requires the canonical input hash to match one of those built-in cases.
+It is not a general logging option and never includes `reasoning_content`.
 
 ## Data and logging policy
 
@@ -115,12 +145,27 @@ try {
   [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($deepseekPointer)
 }
 $env:CTRL_RUN_REAL_DEEPSEEK_SMOKE = "true"
-ctrl-deepseek-smoke
 ```
 
-6. Confirm the report says `api_actually_called=true`, `structured_parse_success=true`, both safety
+6. Run the controlled profiles separately with zero output retries so the comparison cannot add an
+   unplanned provider call:
+
+```powershell
+ctrl-deepseek-smoke --mode FAST --timeout-seconds 180 --retries 0
+ctrl-deepseek-smoke --mode REASONING --timeout-seconds 180 --retries 0
+```
+
+For one explicitly authorized schema-debug rerun of the built-in synthetic FAST case:
+
+```powershell
+ctrl-deepseek-smoke --mode FAST --timeout-seconds 180 --retries 0 --show-synthetic-output
+```
+
+7. Confirm each report identifies `mode`, `max_output_tokens`, thinking configuration, actual model,
+   finish reason, token details, latency, and retry count. A `TRUNCATED_OUTPUT` report must show
+   `finish_reason="length"` and `structured_parse_success=false`. On success, confirm both safety
    cases are not effective `ENTAILS`/`COMPLY`, and inspect whether guardrails downgraded the provider.
-7. Remove the process-local secrets immediately:
+8. Remove the process-local secrets immediately:
 
 ```powershell
 Remove-Item Env:DEEPSEEK_API_KEY

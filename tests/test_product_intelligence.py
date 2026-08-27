@@ -258,6 +258,133 @@ def test_valid_three_way_atomic_decomposition_preserves_source_traceability():
     assert result.issues == ()
 
 
+def test_unique_exact_quote_recovers_incorrect_provider_offsets():
+    source_quote = "SAML 2.0"
+    provider = _atomic(
+        "REQ-SAML",
+        "Система должна поддерживать SAML 2.0.",
+        source_quote=source_quote,
+        source_start_offset=0,
+        source_end_offset=len(source_quote),
+    )
+
+    result = validate_extraction(_raw(), (provider,))
+
+    expected_start = SOURCE.index(source_quote)
+    canonical = result.accepted[0]
+    resolution = result.source_anchor_resolutions[0]
+    assert result.rejected == ()
+    assert canonical.source_start_offset == expected_start
+    assert canonical.source_end_offset == expected_start + len(source_quote)
+    assert resolution.provider_start_offset == 0
+    assert resolution.provider_end_offset == len(source_quote)
+    assert resolution.canonical_start_offset == expected_start
+    assert resolution.canonical_end_offset == expected_start + len(source_quote)
+    assert resolution.exact_match_count == 1
+    assert resolution.offsets_corrected is True
+
+
+def test_unique_exact_quote_preserves_correct_provider_offsets():
+    source_quote = "SAML 2.0"
+    start = SOURCE.index(source_quote)
+    provider = _atomic(
+        "REQ-SAML",
+        "Система должна поддерживать SAML 2.0.",
+        source_quote=source_quote,
+        source_start_offset=start,
+        source_end_offset=start + len(source_quote),
+    )
+
+    result = validate_extraction(_raw(), (provider,))
+
+    assert result.accepted == (provider,)
+    assert result.rejected == ()
+    assert result.source_anchor_resolutions[0].offsets_corrected is False
+
+
+def test_nonexistent_exact_quote_remains_unrecoverable():
+    provider = _atomic(
+        "REQ-KERBEROS",
+        "Система должна поддерживать Kerberos.",
+        source_quote="Kerberos",
+        source_start_offset=0,
+        source_end_offset=len("Kerberos"),
+    )
+
+    result = validate_extraction(_raw(), (provider,))
+
+    assert result.accepted == ()
+    assert result.rejected == (provider,)
+    assert result.source_anchor_resolutions[0].exact_match_count == 0
+    assert result.source_anchor_resolutions[0].canonical_start_offset is None
+    assert {issue.code for issue in result.issues} == {
+        ValidationIssueCode.SOURCE_RELATION_UNRECOVERABLE
+    }
+
+
+def test_duplicate_exact_quote_is_ambiguous_and_never_selects_first_match():
+    source_text = "Система должна поддерживать LDAP; резервный профиль также использует LDAP."
+    raw = _raw().model_copy(update={"original_text": source_text})
+    provider = _atomic(
+        "REQ-LDAP",
+        "Система должна поддерживать LDAP.",
+        original_source_text=source_text,
+        source_quote="LDAP",
+        source_start_offset=source_text.index("LDAP"),
+        source_end_offset=source_text.index("LDAP") + len("LDAP"),
+    )
+
+    result = validate_extraction(raw, (provider,))
+
+    assert result.accepted == ()
+    assert result.rejected == (provider,)
+    assert result.source_anchor_resolutions[0].exact_match_count == 2
+    assert result.source_anchor_resolutions[0].canonical_start_offset is None
+    assert {issue.code for issue in result.issues} == {
+        ValidationIssueCode.AMBIGUOUS_SOURCE_ANCHOR
+    }
+
+
+def test_wrong_locator_still_blocks_after_unique_quote_offset_recovery():
+    source_quote = "SAML 2.0"
+    provider = _atomic(
+        "REQ-SAML",
+        "Система должна поддерживать SAML 2.0.",
+        source_quote=source_quote,
+        source_start_offset=0,
+        source_end_offset=len(source_quote),
+        source_locator=XlsxLocator(sheet="Other", cell_range="Z9"),
+    )
+
+    result = validate_extraction(_raw(), (provider,))
+
+    expected_start = SOURCE.index(source_quote)
+    assert result.accepted == ()
+    assert result.rejected[0].source_start_offset == expected_start
+    assert result.source_anchor_resolutions[0].offsets_corrected is True
+    assert ValidationIssueCode.SOURCE_LOCATOR_LOST in {
+        issue.code for issue in result.issues
+    }
+
+
+def test_short_exact_quote_cannot_bypass_structured_semantic_safety_validators():
+    provider = _atomic(
+        "REQ-INVENTED",
+        "Система должна поддерживать 20 000 пользователей.",
+        source_quote="Система",
+        source_start_offset=1,
+        source_end_offset=2,
+    )
+
+    result = validate_extraction(_raw(), (provider,))
+
+    assert result.accepted == ()
+    assert result.source_anchor_resolutions[0].offsets_corrected is True
+    assert ValidationIssueCode.INVENTED_NUMERIC_CONSTRAINT in {
+        issue.code for issue in result.issues
+    }
+
+
 @pytest.mark.parametrize(
     ("proposal", "expected"),
     [
@@ -425,7 +552,17 @@ def test_provider_entails_is_safely_downgraded_for_inapplicable_evidence(evidenc
     assert expected_tag in result.effective_output.reason_tags
 
 
-def test_registered_users_cannot_entail_concurrent_user_limit():
+@pytest.mark.parametrize(
+    "provider_label",
+    (
+        VerificationLabel.ENTAILS,
+        VerificationLabel.CONTRADICTS,
+        VerificationLabel.INSUFFICIENT,
+    ),
+)
+def test_material_metric_mismatch_is_always_insufficient_and_unknown(
+    provider_label: VerificationLabel,
+):
     atomic = _atomic(
         "REQ-USERS",
         "Система должна поддерживать не менее 10 000 одновременных пользователей.",
@@ -440,13 +577,55 @@ def test_registered_users_cannot_entail_concurrent_user_limit():
     result = apply_evidence_guardrails(
         _verification_request(atomic, evidence),
         EvidenceVerificationOutput(
-            label=VerificationLabel.ENTAILS,
-            explanation="Incorrectly treats registered users as concurrent users",
+            label=provider_label,
+            explanation="Provider verdict about evidence for a different metric",
         ),
+    )
+    mapping = validate_mapping(atomic, (_mapping(atomic.atomic_id),), _catalog())
+    decision = guarded_compliance_policy(
+        atomic,
+        mapping,
+        (result,),
+        aggregate_evidence_conflicts((evidence,), (result,)),
     )
 
     assert result.effective_output.label == VerificationLabel.INSUFFICIENT
     assert VerificationReasonTag.WRONG_METRIC in result.effective_output.reason_tags
+    assert decision.status == GuardedComplianceStatus.UNKNOWN
+
+
+def test_same_metric_explicit_negative_limit_can_remain_gap():
+    atomic = _atomic(
+        "REQ-USERS",
+        "Система должна поддерживать не менее 10 000 одновременных пользователей.",
+        quantitative_constraint=QuantitativeConstraint(
+            comparator=QuantitativeComparator.GREATER_THAN_OR_EQUAL,
+            value="10 000",
+            unit="одновременных пользователей",
+        ),
+    )
+    evidence = _evidence(
+        "LOWER-LIMIT",
+        "Максимум одновременных пользователей: 5 000.",
+    )
+    result = apply_evidence_guardrails(
+        _verification_request(atomic, evidence),
+        EvidenceVerificationOutput(
+            label=VerificationLabel.CONTRADICTS,
+            explanation="Explicit applicable limit is below the required threshold",
+        ),
+    )
+    mapping = validate_mapping(atomic, (_mapping(atomic.atomic_id),), _catalog())
+    decision = guarded_compliance_policy(
+        atomic,
+        mapping,
+        (result,),
+        aggregate_evidence_conflicts((evidence,), (result,)),
+    )
+
+    assert result.effective_output.label == VerificationLabel.CONTRADICTS
+    assert VerificationReasonTag.WRONG_METRIC not in result.effective_output.reason_tags
+    assert decision.status == GuardedComplianceStatus.GAP
 
 
 def test_guarded_policy_never_complies_without_exact_complete_evidence():

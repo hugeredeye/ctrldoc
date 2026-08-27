@@ -31,6 +31,7 @@ from ctrl_v2.evaluation.intelligence_contracts import (
     RequirementMappingCandidate,
     RequirementModality,
     RetrievalMetadata,
+    SourceAnchorResolution,
     ValidationIssue,
     ValidationIssueCode,
     VerificationLabel,
@@ -153,6 +154,61 @@ def _has_unresolved_conjunction(text: str) -> bool:
     return bool(_CONJUNCTION_PATTERN.search(text)) and not bool(_BETWEEN_PATTERN.search(text))
 
 
+def _exact_quote_starts(source_text: str, source_quote: str) -> tuple[int, ...]:
+    starts: list[int] = []
+    search_from = 0
+    while True:
+        start = source_text.find(source_quote, search_from)
+        if start < 0:
+            return tuple(starts)
+        starts.append(start)
+        search_from = start + 1
+
+
+def _canonicalize_source_anchor(
+    source_text: str,
+    proposal: AtomicRequirement,
+) -> tuple[AtomicRequirement, SourceAnchorResolution, ValidationIssueCode | None]:
+    matches = _exact_quote_starts(source_text, proposal.source_quote)
+    if len(matches) != 1:
+        resolution = SourceAnchorResolution(
+            atomic_id=proposal.atomic_id,
+            provider_start_offset=proposal.source_start_offset,
+            provider_end_offset=proposal.source_end_offset,
+            exact_match_count=len(matches),
+            offsets_corrected=False,
+        )
+        issue = (
+            ValidationIssueCode.SOURCE_RELATION_UNRECOVERABLE
+            if not matches
+            else ValidationIssueCode.AMBIGUOUS_SOURCE_ANCHOR
+        )
+        return proposal, resolution, issue
+
+    canonical_start = matches[0]
+    canonical_end = canonical_start + len(proposal.source_quote)
+    offsets_corrected = (
+        proposal.source_start_offset != canonical_start
+        or proposal.source_end_offset != canonical_end
+    )
+    canonical = proposal.model_copy(
+        update={
+            "source_start_offset": canonical_start,
+            "source_end_offset": canonical_end,
+        }
+    )
+    resolution = SourceAnchorResolution(
+        atomic_id=proposal.atomic_id,
+        provider_start_offset=proposal.source_start_offset,
+        provider_end_offset=proposal.source_end_offset,
+        canonical_start_offset=canonical_start,
+        canonical_end_offset=canonical_end,
+        exact_match_count=1,
+        offsets_corrected=offsets_corrected,
+    )
+    return canonical, resolution, None
+
+
 def validate_extraction(
     source: RawRequirement,
     proposals: Sequence[AtomicRequirement],
@@ -160,10 +216,16 @@ def validate_extraction(
     accepted: list[AtomicRequirement] = []
     rejected: list[AtomicRequirement] = []
     issues: list[ValidationIssue] = []
+    source_anchor_resolutions: list[SourceAnchorResolution] = []
     seen: set[str] = set()
     source_numbers = _normalized_numbers(source.original_text)
 
-    for proposal in proposals:
+    for provider_proposal in proposals:
+        proposal, anchor_resolution, anchor_issue = _canonicalize_source_anchor(
+            source.original_text,
+            provider_proposal,
+        )
+        source_anchor_resolutions.append(anchor_resolution)
         local: list[ValidationIssue] = []
         add = partial(_add_validation_issue, local, proposal.atomic_id)
 
@@ -180,15 +242,15 @@ def validate_extraction(
             mode="json"
         ):
             add(ValidationIssueCode.SOURCE_LOCATOR_LOST, "Source locator changed or was lost")
-        offsets_valid = (
-            proposal.source_end_offset <= len(source.original_text)
-            and source.original_text[proposal.source_start_offset : proposal.source_end_offset]
-            == proposal.source_quote
-        )
-        if not offsets_valid:
+        if anchor_issue is ValidationIssueCode.SOURCE_RELATION_UNRECOVERABLE:
             add(
                 ValidationIssueCode.SOURCE_RELATION_UNRECOVERABLE,
-                "Source quote cannot be recovered at the declared offsets",
+                "Source quote does not occur exactly in the declared source unit",
+            )
+        elif anchor_issue is ValidationIssueCode.AMBIGUOUS_SOURCE_ANCHOR:
+            add(
+                ValidationIssueCode.AMBIGUOUS_SOURCE_ANCHOR,
+                "Source quote occurs more than once in the declared source unit",
             )
         invented_numbers = _normalized_numbers(proposal.normalized_text) - source_numbers
         if invented_numbers:
@@ -245,6 +307,7 @@ def validate_extraction(
         accepted=tuple(accepted),
         rejected=tuple(rejected),
         issues=tuple(issues),
+        source_anchor_resolutions=tuple(source_anchor_resolutions),
         requires_human_review=bool(issues),
     )
 
@@ -462,14 +525,14 @@ def apply_evidence_guardrails(
 
     evidence_text = candidate.canonical_text.casefold()
     requirement_text = request.requirement.normalized_text.casefold()
+    constraint = request.requirement.quantitative_constraint
+    if constraint is not None and constraint.unit.casefold() not in evidence_text:
+        _append_tag(adjustments, VerificationReasonTag.WRONG_METRIC)
     if provider_output.label == VerificationLabel.ENTAILS:
-        constraint = request.requirement.quantitative_constraint
         if constraint is not None:
             value = re.sub(r"\D", "", constraint.value)
             if value not in _normalized_numbers(evidence_text):
                 _append_tag(adjustments, VerificationReasonTag.INSUFFICIENT_LIMIT)
-            if constraint.unit.casefold() not in evidence_text:
-                _append_tag(adjustments, VerificationReasonTag.WRONG_METRIC)
         for required, conflicting, tag in _CONTRASTING_QUALIFIERS:
             if required in requirement_text and required not in evidence_text:
                 _append_tag(adjustments, tag)

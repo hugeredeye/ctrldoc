@@ -96,6 +96,7 @@ class AtomicExtractionOutput(IntelligenceModel):
 class TokenUsage(IntelligenceModel):
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
+    reasoning_tokens: int | None = Field(default=None, ge=0)
     total_tokens: int | None = Field(default=None, ge=0)
 
 
@@ -104,8 +105,10 @@ class ProviderCallConfiguration(IntelligenceModel):
     base_url: str = Field(min_length=1)
     endpoint_url: str | None = None
     requested_model_id: str = Field(min_length=1)
+    inference_mode: str | None = None
     thinking_enabled: bool | None = None
     reasoning_effort: str | None = None
+    temperature: float | None = Field(default=None, ge=0, le=2)
     timeout_seconds: float = Field(gt=0)
     max_output_tokens: int | None = Field(default=None, gt=0)
     transport_max_retries: int = Field(default=0, ge=0)
@@ -122,6 +125,7 @@ class ModelCallRecord(IntelligenceModel):
     reasoning_effort: str = Field(min_length=1)
     input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    finish_reason: str | None = None
     latency_ms: float = Field(ge=0)
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     retry_count: int = Field(default=0, ge=0)
@@ -146,6 +150,7 @@ class ValidationIssueCode(StrEnum):
     MODALITY_CHANGED = "MODALITY_CHANGED"
     SOURCE_LOCATOR_LOST = "SOURCE_LOCATOR_LOST"
     SOURCE_RELATION_UNRECOVERABLE = "SOURCE_RELATION_UNRECOVERABLE"
+    AMBIGUOUS_SOURCE_ANCHOR = "AMBIGUOUS_SOURCE_ANCHOR"
     ORIGINAL_SOURCE_CHANGED = "ORIGINAL_SOURCE_CHANGED"
     NON_ATOMIC_CONJUNCTION = "NON_ATOMIC_CONJUNCTION"
     AMBIGUOUS_REQUIREMENT = "AMBIGUOUS_REQUIREMENT"
@@ -161,10 +166,46 @@ class ValidationIssue(IntelligenceModel):
     blocking: bool
 
 
+class SourceAnchorResolution(IntelligenceModel):
+    atomic_id: str = Field(min_length=1)
+    provider_start_offset: int = Field(ge=0)
+    provider_end_offset: int = Field(gt=0)
+    canonical_start_offset: int | None = Field(default=None, ge=0)
+    canonical_end_offset: int | None = Field(default=None, gt=0)
+    exact_match_count: int = Field(ge=0)
+    offsets_corrected: bool
+
+    @model_validator(mode="after")
+    def validate_canonical_offsets(self) -> SourceAnchorResolution:
+        has_canonical_offsets = (
+            self.canonical_start_offset is not None
+            and self.canonical_end_offset is not None
+        )
+        if self.exact_match_count == 1 and not has_canonical_offsets:
+            raise ValueError("a unique source anchor requires canonical offsets")
+        if self.exact_match_count != 1 and has_canonical_offsets:
+            raise ValueError("non-unique source anchors cannot have canonical offsets")
+        if self.offsets_corrected and self.exact_match_count != 1:
+            raise ValueError("only a unique source anchor can correct offsets")
+        if has_canonical_offsets:
+            assert self.canonical_start_offset is not None
+            assert self.canonical_end_offset is not None
+            if self.canonical_end_offset <= self.canonical_start_offset:
+                raise ValueError("canonical end offset must be greater than start offset")
+            expected_correction = (
+                self.provider_start_offset != self.canonical_start_offset
+                or self.provider_end_offset != self.canonical_end_offset
+            )
+            if self.offsets_corrected != expected_correction:
+                raise ValueError("offset correction flag does not match canonical offsets")
+        return self
+
+
 class ExtractionValidationResult(IntelligenceModel):
     accepted: tuple[AtomicRequirement, ...]
     rejected: tuple[AtomicRequirement, ...]
     issues: tuple[ValidationIssue, ...]
+    source_anchor_resolutions: tuple[SourceAnchorResolution, ...] = ()
     requires_human_review: bool
 
 
