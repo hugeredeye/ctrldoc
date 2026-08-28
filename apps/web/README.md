@@ -42,6 +42,24 @@ The production bundle is generated in ignored `apps/web/dist/`. To inspect that 
 npm run preview
 ```
 
+## Deploy with Cloudflare Workers Static Assets
+
+Create or connect the Cloudflare Worker named `ctrldoc`, then enter these exact values under
+**Settings → Builds**:
+
+- Production branch: `product/public-launch-v1`
+- Root directory: `apps/web`
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
+- Build variables and secrets: none
+
+Vite writes the production bundle to `dist`. The `wrangler.jsonc` file deploys `./dist` as Workers
+Static Assets. Its `single-page-application` fallback serves `index.html` for browser navigation to
+unmatched asset paths, so `/demo` and `/demo/guided` work when opened directly or refreshed.
+
+No Worker entry point, API handler, runtime binding, secret, environment variable, or legacy
+Cloudflare Pages configuration is required for this static-only deployment.
+
 ## Scope boundary
 
 The landing's product reconstruction and Workbench use synthetic-safe data. Approval, escalation,
