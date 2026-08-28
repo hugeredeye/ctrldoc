@@ -57,25 +57,39 @@ describe("CTRL DOC public landing", () => {
     expect(within(security as HTMLElement).getByText("10 / Безопасность")).toBeVisible();
   });
 
-  it("links the primary calls to action to the preserved demo route", () => {
+  it("routes marketing calls to action through the guided demo first", () => {
     render(<LandingPage />);
 
-    expect(screen.getByRole("link", { name: "Посмотреть, как работает" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Проверить на примере" })).toHaveAttribute(
       "href",
-      "/demo",
+      "/demo/guided",
     );
-    for (const demoLink of screen.getAllByRole("link", { name: "Посмотреть демо" })) {
-      expect(demoLink).toHaveAttribute("href", "/demo");
-    }
+    expect(screen.getByRole("link", { name: "Бесплатное демо" })).toHaveAttribute(
+      "href",
+      "/demo/guided",
+    );
+    expect(screen.getByRole("link", { name: "Сначала пройти безопасное демо →" })).toHaveAttribute(
+      "href",
+      "/demo/guided",
+    );
+  });
+
+  it("keeps the guided experience available at /demo/guided", async () => {
+    render(<Site path="/demo/guided" />);
+
+    expect(
+      await screen.findByRole("heading", { name: "ИИ находит. CTRL проверяет." }),
+    ).toBeVisible();
+    expect(screen.getByText("Реальные документы не принимаются и никуда не загружаются.")).toBeVisible();
   });
 
   it("keeps the existing Intelligence Workbench available at /demo", async () => {
     render(<Site path="/demo" />);
 
     expect(
-      await screen.findByRole("main", { name: "CTRL Intelligence Workbench" }),
+      await screen.findByRole("main", { name: "Рабочая область CTRL DOC" }),
     ).toBeVisible();
-    expect(screen.getByText("RFP-2026-014 · Enterprise platform")).toBeVisible();
+    expect(screen.getByText("RFP-2026-014 · Корпоративная платформа")).toBeVisible();
   });
 
   it("supports keyboard press and release on the CTRL keycap", () => {
@@ -96,18 +110,18 @@ describe("CTRL DOC public landing", () => {
     const evidence = screen.getByRole("button", { name: /03 Доказательство/ });
 
     expect(evidence).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Admin Guide 7.4")).toBeVisible();
+    expect(screen.getByText("Руководство администратора 7.4")).toBeVisible();
     expect(capability).toHaveAttribute("aria-expanded", "false");
 
     await user.click(capability);
     expect(capability).toHaveAttribute("aria-expanded", "true");
     expect(evidence).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByText("Horizontal user scaling")).toBeVisible();
-    expect(screen.queryByText("Admin Guide 7.4")).not.toBeInTheDocument();
+    expect(screen.getByText("Масштабирование пользователей")).toBeVisible();
+    expect(screen.queryByText("Руководство администратора 7.4")).not.toBeInTheDocument();
 
     await user.click(capability);
     expect(capability).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("Horizontal user scaling")).not.toBeInTheDocument();
+    expect(screen.queryByText("Масштабирование пользователей")).not.toBeInTheDocument();
   });
 
   it("operates the product-model accordion from the keyboard", async () => {
@@ -142,9 +156,17 @@ describe("CTRL DOC public landing", () => {
     const user = userEvent.setup();
     render(<LandingPage />);
 
-    await user.click(screen.getByRole("button", { name: /Запросить доступ/ }));
+    await user.type(screen.getByRole("textbox", { name: "Имя" }), "Анна");
+    await user.type(screen.getByRole("textbox", { name: "Рабочий email" }), "anna@example.com");
+    await user.type(screen.getByRole("textbox", { name: "Компания" }), "Example");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Что хотите проверить?" }), "RFP");
+    await user.click(screen.getByRole("button", { name: /Подготовить запрос на пилот/ }));
 
-    expect(screen.getByRole("status")).toHaveTextContent("Публичная форма не собирает данные");
+    expect(screen.getByRole("status")).toHaveTextContent("автоматическая отправка пока не подключена");
+    expect(
+      (screen.getByRole("textbox", { name: "Проверьте текст заявки" }) as HTMLTextAreaElement)
+        .value,
+    ).toContain("Рабочий email: anna@example.com");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

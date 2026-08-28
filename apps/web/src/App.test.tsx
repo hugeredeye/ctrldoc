@@ -20,24 +20,24 @@ describe("CTRL Intelligence Workbench", () => {
 
     await user.click(
       within(requirementPanel()).getByRole("button", {
-        name: /active-active deployment между регионами/i,
+        name: /развёртывание active-active между регионами/i,
       }),
     );
 
     expect(
       screen.getByRole("heading", {
-        name: /Платформа должна поддерживать active-active deployment между регионами/i,
+        name: /Платформа должна поддерживать развёртывание active-active между регионами/i,
       }),
     ).toBeVisible();
-    expect(screen.getByText("Roadmap only")).toBeVisible();
-    expect(screen.getByText("Aegis 8.0 (planned)")).toBeVisible();
+    expect(screen.getByText("Только в плане развития")).toBeVisible();
+    expect(screen.getByText("Aegis 8.0 (план)")).toBeVisible();
   });
 
   it("filters the list by proposed decision", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Partial" }));
+    await user.click(screen.getByRole("button", { name: "Частично" }));
 
     const panel = requirementPanel();
     expect(within(panel).getByText("REQ-118")).toBeVisible();
@@ -49,7 +49,7 @@ describe("CTRL Intelligence Workbench", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Needs review" }));
+    await user.click(screen.getByRole("button", { name: "Требует проверки" }));
 
     const panel = requirementPanel();
     expect(within(panel).queryByText("REQ-024")).not.toBeInTheDocument();
@@ -60,10 +60,11 @@ describe("CTRL Intelligence Workbench", () => {
   it("makes the semantic-neighbour mismatch and safe abstention explicit", () => {
     render(<App />);
 
-    expect(screen.getByText("registered ≠ concurrent")).toBeVisible();
-    expect(screen.getAllByText("Metric mismatch")).toHaveLength(2);
-    expect(screen.getByText("Safe abstention")).toBeVisible();
-    expect(screen.getByText("Decision UNKNOWN · human review required")).toBeVisible();
+    expect(screen.getAllByText("Зарегистрированные ≠ одновременные").length).toBeGreaterThan(0);
+    expect(screen.getByText("Показатели не совпадают")).toBeVisible();
+    expect(screen.getByText("Несовпадение показателей")).toBeVisible();
+    expect(screen.getByText("CTRL не делает неподтверждённое обещание")).toBeVisible();
+    expect(screen.getByText("Недостаточно данных · UNKNOWN · требуется проверка человеком")).toBeVisible();
     expect(screen.getByText("10 000 зарегистрированных пользователей")).toBeVisible();
   });
 
@@ -78,9 +79,9 @@ describe("CTRL Intelligence Workbench", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Источники противоречат друг другу" })).toBeVisible();
-    expect(screen.getByText("Подтверждает")).toBeVisible();
-    expect(screen.getByText("Противоречит")).toBeVisible();
-    expect(screen.getAllByText(/Operations Bulletin 03/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Подтверждает").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Противоречит").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Операционный бюллетень 03/).length).toBeGreaterThan(0);
     expect(screen.getByText(/не выбирает удобный источник автоматически/i)).toBeVisible();
   });
 
@@ -88,10 +89,10 @@ describe("CTRL Intelligence Workbench", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(screen.getByRole("button", { name: "Подтвердить" }));
 
-    expect(screen.getByText("Approved in demo")).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("только в demo-state");
+    expect(screen.getByText("Подтверждено человеком в демо")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("только в состоянии демо");
     expect(screen.getByRole("button", { name: "Подтверждено" })).toBeDisabled();
   });
 
@@ -102,8 +103,15 @@ describe("CTRL Intelligence Workbench", () => {
     render(<App />);
 
     await user.type(screen.getByRole("searchbox", { name: "Поиск требований" }), "REQ-041");
-    await user.click(screen.getByRole("button", { name: "Needs review" }));
+    await user.click(screen.getByRole("button", { name: "Требует проверки" }));
 
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("provides an obvious return path to the landing", () => {
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: "← На главную" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "CTRL DOC — на главную" })).toHaveAttribute("href", "/");
   });
 });

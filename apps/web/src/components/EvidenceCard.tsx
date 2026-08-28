@@ -15,9 +15,27 @@ function HighlightedQuote({ quote, highlight }: { quote: string; highlight: stri
   );
 }
 
-function formatSourceType(sourceType: EvidenceSpan["sourceType"]) {
-  return sourceType.replaceAll("_", " ");
-}
+const sourceTypeLabels: Record<EvidenceSpan["sourceType"], string> = {
+  CERTIFICATION: "Сертификационный документ",
+  OFFICIAL_SPECIFICATION: "Официальная спецификация",
+  PREVIOUS_APPROVED_RESPONSE: "Ранее согласованный ответ",
+  RELEASE_NOTES: "Примечания к выпуску",
+  ROADMAP: "План развития",
+  TEST_REPORT: "Отчёт об испытаниях",
+};
+
+const authorityLabels: Record<EvidenceSpan["authority"], string> = {
+  AUTHORITATIVE: "Авторитетный источник",
+  STRONG: "Надёжный источник",
+  SUPPORTING: "Вспомогательный источник",
+  WEAK: "Слабый источник",
+};
+
+const evidenceStatusLabels: Record<EvidenceSpan["status"], string> = {
+  CANDIDATE: "Кандидат",
+  REJECTED: "Отклонено",
+  VERIFIED: "Проверено",
+};
 
 export function EvidenceCard({ evidence, compact = false }: { evidence: EvidenceSpan; compact?: boolean }) {
   const location = [evidence.section, evidence.page ? `стр. ${evidence.page}` : undefined]
@@ -34,7 +52,7 @@ export function EvidenceCard({ evidence, compact = false }: { evidence: Evidence
             <span>{evidence.documentVersion}</span>
           </div>
         </div>
-        <StatusPill value={evidence.effectiveVerdict} />
+        <StatusPill showCode value={evidence.effectiveVerdict} />
       </div>
 
       <blockquote>
@@ -46,30 +64,30 @@ export function EvidenceCard({ evidence, compact = false }: { evidence: Evidence
         <>
           <div className="source-grid">
             <div>
-              <span>Location</span>
+              <span>Место в источнике</span>
               <strong>{location}</strong>
             </div>
             <div>
-              <span>Product version</span>
+              <span>Версия продукта</span>
               <strong>{evidence.productVersion}</strong>
             </div>
             <div>
-              <span>Authority</span>
-              <strong>{evidence.authority}</strong>
+              <span>Авторитетность</span>
+              <strong>{authorityLabels[evidence.authority]}</strong>
             </div>
             <div>
-              <span>Source type</span>
-              <strong>{formatSourceType(evidence.sourceType)}</strong>
+              <span>Тип источника</span>
+              <strong>{sourceTypeLabels[evidence.sourceType]}</strong>
             </div>
             <div>
-              <span>Applicable</span>
+              <span>Период применимости</span>
               <strong>
-                {evidence.validFrom} → {evidence.validTo ?? "present"}
+                {evidence.validFrom} → {evidence.validTo ?? "по настоящее время"}
               </strong>
             </div>
             <div>
-              <span>Evidence status</span>
-              <strong>{evidence.status}</strong>
+              <span>Статус доказательства</span>
+              <strong>{evidenceStatusLabels[evidence.status]}</strong>
             </div>
           </div>
           <p className="evidence-explanation">{evidence.explanation}</p>

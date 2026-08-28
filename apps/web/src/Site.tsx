@@ -7,10 +7,23 @@ const Workbench = lazy(async () => {
   return { default: module.App };
 });
 
+const GuidedDemo = lazy(async () => {
+  const module = await import("./GuidedDemo");
+  return { default: module.GuidedDemo };
+});
+
 export function Site({ path = window.location.pathname }: { path?: string }) {
+  if (path === "/demo/guided" || path.startsWith("/demo/guided/")) {
+    return (
+      <Suspense fallback={<div role="status">Загрузка проверки…</div>}>
+        <GuidedDemo />
+      </Suspense>
+    );
+  }
+
   if (path === "/demo" || path.startsWith("/demo/")) {
     return (
-      <Suspense fallback={<div role="status">Загрузка Workbench…</div>}>
+      <Suspense fallback={<div role="status">Загрузка рабочей области…</div>}>
         <Workbench />
       </Suspense>
     );

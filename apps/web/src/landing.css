@@ -2189,3 +2189,357 @@
     transform: rotateX(8deg) rotateY(-7deg) rotateZ(-1.5deg);
   }
 }
+
+/* Public launch pilot flow */
+.landing-final,
+.final-grid {
+  min-height: max(880px, 100svh);
+}
+
+.final-grid {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr auto;
+  align-items: stretch;
+  padding-top: 52px;
+  padding-bottom: 30px;
+}
+
+.pilot-layout {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(430px, 0.72fr);
+  align-items: start;
+  gap: clamp(55px, 8vw, 130px);
+  padding: clamp(62px, 7vw, 105px) 0 58px;
+}
+
+.pilot-copy h2 {
+  max-width: 850px;
+  margin: 0;
+  color: #f2f0e8;
+  font-size: clamp(58px, 6.2vw, 98px);
+  font-variation-settings: "wght" 420;
+  font-weight: 420;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.pilot-copy > p {
+  max-width: 650px;
+  margin: 33px 0 0;
+  color: #aab2ad;
+  font-size: clamp(16px, 1.35vw, 20px);
+  line-height: 1.55;
+}
+
+.pilot-copy .pilot-boundary {
+  max-width: 590px;
+  margin-top: 22px;
+  padding-left: 17px;
+  color: #818d86;
+  border-left: 2px solid var(--landing-cobalt-bright);
+  font-size: 12px;
+}
+
+.pilot-copy .pilot-commercial {
+  margin-top: 22px;
+  color: #606c65;
+  font: 520 9px/1.5 "IBM Plex Mono CTRL", monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pilot-demo-link {
+  display: inline-block;
+  margin-top: 35px;
+  padding-bottom: 5px;
+  color: #aeb7b1 !important;
+  border-bottom: 1px solid #4c5b53;
+  font-size: 11px;
+}
+
+.pilot-demo-link:hover {
+  color: #fff !important;
+  border-color: #8b9890;
+}
+
+.pilot-form {
+  display: grid;
+  gap: 0;
+  padding: 0 18px 18px;
+  background: rgb(16 28 23 / 72%);
+  border: 1px solid #3d4c44;
+  box-shadow: 0 22px 60px rgb(0 0 0 / 16%);
+}
+
+.pilot-form-heading {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  color: #e5e7e1;
+  border-bottom: 1px solid #3a4740;
+  font: 590 10px/1 "IBM Plex Mono CTRL", monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.pilot-form-heading small {
+  color: #8c9891;
+  font-size: 7.5px;
+}
+
+.pilot-form > label {
+  display: grid;
+  min-height: 72px;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 18px;
+  margin-top: 10px;
+  padding: 9px 14px;
+  background: #13201b;
+  border: 1px solid #3b4941;
+  border-radius: 2px;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.pilot-form > label:hover {
+  background: #17251f;
+  border-color: #56645c;
+}
+
+.pilot-form > label:focus-within {
+  background: #17251f;
+  border-color: #4f77e7;
+  box-shadow: 0 0 0 3px rgb(38 91 239 / 15%);
+}
+
+.pilot-form > label > span,
+.pilot-prepared > label {
+  color: #a9b3ad;
+  font: 540 8.5px/1.4 "IBM Plex Mono CTRL", monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.pilot-form input,
+.pilot-form select {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 0 10px;
+  color: #f6f4ed;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: "Onest CTRL", sans-serif;
+  font-size: 14.5px;
+  caret-color: #8ca9ff;
+}
+
+.pilot-form input::placeholder {
+  color: #77837c;
+  opacity: 1;
+}
+
+.pilot-form select {
+  appearance: none;
+  padding-right: 36px;
+  color-scheme: dark;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #a8b2ac 50%),
+    linear-gradient(135deg, #a8b2ac 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 20px,
+    calc(100% - 12px) 20px;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+}
+
+.pilot-form select option {
+  color: #f2f1eb;
+  background: #14211c;
+}
+
+.pilot-form input:focus-visible,
+.pilot-form select:focus-visible {
+  outline: 0;
+}
+
+.pilot-prepared textarea:focus-visible {
+  outline: 2px solid #7fa1ff;
+  outline-offset: 3px;
+}
+
+.pilot-form input:-webkit-autofill,
+.pilot-form input:-webkit-autofill:hover,
+.pilot-form input:-webkit-autofill:focus {
+  box-shadow: 0 0 0 1000px #17251f inset;
+  -webkit-text-fill-color: #f6f4ed;
+  caret-color: #8ca9ff;
+  transition: background-color 9999s ease-out;
+}
+
+.pilot-form > .landing-button {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.pilot-form-note {
+  margin: 13px 2px 0;
+  color: #909b94;
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.pilot-prepared {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #29352f;
+}
+
+.pilot-prepared textarea {
+  width: 100%;
+  padding: 13px;
+  resize: vertical;
+  color: #c7cec9;
+  background: #111c18;
+  border: 1px solid #344139;
+  border-radius: 2px;
+  font: 500 10px/1.55 "IBM Plex Mono CTRL", monospace;
+}
+
+.pilot-prepared-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.pilot-prepared-actions a,
+.pilot-prepared-actions button {
+  min-height: 38px;
+  padding: 0 12px;
+  color: #d8dcd8;
+  background: transparent;
+  border: 1px solid #536159;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.pilot-prepared-actions a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pilot-prepared-actions a:hover,
+.pilot-prepared-actions button:hover {
+  color: #fff;
+  border-color: #89958e;
+}
+
+.pilot-status {
+  margin: 13px 0 0;
+  color: #9fc7b1;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.final-keycap {
+  top: 54%;
+  right: -8%;
+  opacity: 0.14;
+}
+
+.landing-footer {
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  align-self: end;
+  padding-top: 23px;
+  border-top: 1px solid var(--landing-line-dark);
+}
+
+@media (max-width: 900px) {
+  .pilot-layout {
+    grid-template-columns: 1fr;
+    gap: 70px;
+  }
+
+  .pilot-form {
+    max-width: 680px;
+  }
+
+  .final-keycap {
+    top: 26%;
+    right: -28%;
+    width: 78vw;
+  }
+}
+
+@media (max-width: 620px) {
+  .landing-final,
+  .final-grid {
+    min-height: 0;
+  }
+
+  .final-grid {
+    padding-top: 35px;
+    padding-bottom: 25px;
+  }
+
+  .final-brand .landing-brand-copy span {
+    display: none;
+  }
+
+  .pilot-layout {
+    gap: 55px;
+    padding: 70px 0 55px;
+  }
+
+  .pilot-copy h2 {
+    font-size: clamp(45px, 13vw, 60px);
+  }
+
+  .pilot-copy > p {
+    font-size: 15px;
+  }
+
+  .pilot-form-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .pilot-form > label {
+    min-height: 92px;
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: 4px;
+  }
+
+  .pilot-prepared-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pilot-prepared-actions a,
+  .pilot-prepared-actions button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .landing-footer {
+    right: auto;
+    bottom: auto;
+    left: auto;
+  }
+}

@@ -1,7 +1,7 @@
 :root {
   color: #18211d;
   background: #eeeee9;
-  font-family: "Segoe UI Variable", "Segoe UI", Aptos, Arial, sans-serif;
+  font-family: "Onest CTRL", "Segoe UI Variable", "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --ink: #18211d;
@@ -12,7 +12,7 @@
   --surface-muted: #f2f2ed;
   --line: #dedfd9;
   --line-strong: #c9ccc5;
-  --brand: #df6b4f;
+  --brand: #1649d8;
   --green: #246c4d;
   --green-soft: #e5f0e9;
   --amber: #a56819;
@@ -56,7 +56,8 @@ button {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+a:focus-visible {
   outline: 3px solid rgb(36 108 77 / 28%);
   outline-offset: 2px;
 }
@@ -93,7 +94,7 @@ summary:focus-visible {
 
 .brand-block,
 .header-actions,
-.project-context button,
+.project-name,
 .workflow-steps,
 .workflow-step,
 .workflow-summary,
@@ -109,6 +110,12 @@ summary:focus-visible {
 .technical-details summary {
   display: flex;
   align-items: center;
+}
+
+.app-brand-link {
+  width: fit-content;
+  color: inherit;
+  text-decoration: none;
 }
 
 .brand-block {
@@ -176,23 +183,32 @@ summary:focus-visible {
   text-transform: uppercase;
 }
 
-.project-context button {
+.project-name {
   gap: 8px;
   padding: 7px 9px;
   color: #e7e9e6;
   background: transparent;
-  border: 0;
-  border-radius: 5px;
-  cursor: pointer;
   font-size: 12px;
-}
-
-.project-context button:hover {
-  background: #27312c;
 }
 
 .header-actions {
   gap: 14px;
+}
+
+.workbench-home-link {
+  padding: 7px 0;
+  color: #b9c1bc;
+  border-bottom: 1px solid #59635e;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.workbench-home-link:hover {
+  color: #fff;
+  border-color: #a5aea9;
 }
 
 .demo-badge {
@@ -201,6 +217,12 @@ summary:focus-visible {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
+}
+
+.demo-badge strong,
+.demo-badge em {
+  font: inherit;
+  font-style: normal;
 }
 
 .demo-badge > span {
@@ -598,6 +620,15 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+.status-pill code {
+  padding-left: 5px;
+  color: currentColor;
+  border-left: 1px solid currentColor;
+  font: 600 7px/1 Consolas, "Courier New", monospace;
+  letter-spacing: 0.04em;
+  opacity: 0.62;
+}
+
 .status-dot {
   width: 5px;
   height: 5px;
@@ -681,6 +712,7 @@ summary:focus-visible {
   position: relative;
   display: grid;
   height: 100%;
+  min-width: 0;
   grid-template-rows: 42px minmax(0, 1fr) auto;
   background: var(--surface);
   box-shadow: var(--shadow);
@@ -688,6 +720,7 @@ summary:focus-visible {
 
 .detail-topbar {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   padding: 0 22px;
@@ -719,6 +752,7 @@ summary:focus-visible {
 
 .detail-scroll {
   min-height: 0;
+  min-width: 0;
   padding: 25px clamp(24px, 3vw, 46px) 32px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -1289,9 +1323,10 @@ summary:focus-visible {
   .workflow-step strong { display: none; }
   .workflow-step i { width: 9vw; }
   .workflow-summary { width: 100%; justify-content: flex-end; }
-  .workbench { display: block; height: auto; }
+  .workbench { display: block; height: auto; overflow-x: clip; }
   .requirements-wrap { height: 48vh; min-height: 420px; }
-  .detail-panel { height: auto; min-height: 100vh; grid-template-rows: 42px auto auto; }
+  .detail-panel { width: 100%; height: auto; min-height: 100vh; grid-template-rows: 42px auto auto; }
+  .detail-topbar, .detail-scroll { width: 100%; }
   .detail-scroll { overflow: visible; }
   .conflict-grid { grid-template-columns: 1fr; }
   .review-bar { position: sticky; bottom: 0; }
@@ -1299,12 +1334,15 @@ summary:focus-visible {
 
 @media (max-width: 580px) {
   .app-header { padding: 0 12px; }
+  .header-actions { gap: 9px; }
   .brand-block > div span, .workflow-summary .summary-comply, .workflow-summary .summary-partial { display: none; }
   .demo-badge { font-size: 8px; }
+  .demo-badge em { display: none; }
   .workflow-summary { justify-content: flex-start; }
   .requirements-heading { padding: 18px 16px 14px; }
   .requirement-row { padding-left: 16px; }
   .row-statuses .status-quiet { display: none; }
+  .requirement-row .status-pill { max-width: 105px; font-size: 7px; line-height: 1.15; text-align: center; white-space: normal; }
   .detail-scroll { padding: 22px 16px 28px; }
   .detail-topbar { padding: 0 16px; }
   .customer-requirement h2 { font-size: 22px; }

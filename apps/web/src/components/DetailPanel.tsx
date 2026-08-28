@@ -9,6 +9,7 @@ import type {
 import { EvidenceCard } from "./EvidenceCard";
 import { Icon } from "./Icon";
 import { StatusPill } from "./StatusPill";
+import { statusLabels } from "./statusLabels";
 
 interface DetailPanelProps {
   decision: ComplianceStatus;
@@ -29,22 +30,22 @@ const decisionOptions: ComplianceStatus[] = [
 function MappingPath({ requirement }: { requirement: AtomicRequirement }) {
   const { mapping } = requirement;
   return (
-    <div className="mapping-path" aria-label="Цепочка mapping">
+    <div className="mapping-path" aria-label="Связь с моделью продукта">
       <div>
-        <span>Product</span>
+        <span>Продукт</span>
         <strong>{mapping.product.name}</strong>
       </div>
       <Icon name="arrow-right" size={16} />
       <div>
-        <span>Product version</span>
+        <span>Версия продукта</span>
         <strong>{mapping.productVersion.label}</strong>
       </div>
       <Icon name="arrow-right" size={16} />
       <div>
-        <span>Capability</span>
+        <span>Возможность</span>
         <strong>{mapping.capability.name}</strong>
       </div>
-      <span className="mapping-confidence">{Math.round(mapping.confidence * 100)}% mapping</span>
+      <span className="mapping-confidence">{Math.round(mapping.confidence * 100)}% совпадение</span>
     </div>
   );
 }
@@ -53,33 +54,33 @@ function SemanticMismatch({ evidence }: { evidence: EvidenceSpan }) {
   return (
     <section className="semantic-mismatch" aria-labelledby="semantic-mismatch-title">
       <div className="mismatch-intro">
-        <span className="mismatch-kicker">CTRL verification path</span>
+        <span className="mismatch-kicker">Логика проверки CTRL</span>
         <h3 id="semantic-mismatch-title">Семантически близко — логически недостаточно</h3>
       </div>
       <div className="verdict-route">
         <div className="route-step route-model">
-          <span>Model candidate</span>
-          <strong>Semantic evidence found</strong>
+          <span>Найденный кандидат</span>
+          <strong>Доказательство похоже по смыслу</strong>
           <StatusPill value={evidence.verifierCandidate} quiet />
         </div>
         <Icon name="arrow-right" size={18} />
         <div className="route-step route-guardrail">
-          <span>CTRL guardrail</span>
-          <strong>Metric mismatch</strong>
-          <em>registered ≠ concurrent</em>
+          <span>Защитная проверка CTRL</span>
+          <strong>Показатели не совпадают</strong>
+          <em>Зарегистрированные ≠ одновременные</em>
         </div>
         <Icon name="arrow-right" size={18} />
         <div className="route-step route-effective">
-          <span>Effective verdict</span>
-          <strong>Evidence rejected</strong>
-          <StatusPill value={evidence.effectiveVerdict} />
+          <span>Итог проверки</span>
+          <strong>Кандидат отклонён</strong>
+          <StatusPill showCode value={evidence.effectiveVerdict} />
         </div>
       </div>
       <div className="safe-outcome">
         <Icon name="shield" size={20} />
         <div>
-          <strong>Safe abstention</strong>
-          <span>Decision UNKNOWN · human review required</span>
+          <strong>CTRL не делает неподтверждённое обещание</strong>
+          <span>Недостаточно данных · UNKNOWN · требуется проверка человеком</span>
         </div>
       </div>
     </section>
@@ -97,7 +98,7 @@ function ConflictView({ requirement }: { requirement: AtomicRequirement }) {
     <section className="conflict-section" aria-labelledby="conflict-title">
       <div className="section-heading conflict-heading">
         <div>
-          <p className="eyebrow">Material conflict</p>
+          <p className="eyebrow">Существенный конфликт</p>
           <h3 id="conflict-title">Источники противоречат друг другу</h3>
         </div>
         <StatusPill value="BLOCKING" />
@@ -115,7 +116,7 @@ function ConflictView({ requirement }: { requirement: AtomicRequirement }) {
       </div>
       <div className="conflict-policy">
         <Icon name="warning" size={18} />
-        CTRL не скрывает opposing evidence и не выбирает удобный источник автоматически.
+        CTRL не скрывает противоречащие доказательства и не выбирает удобный источник автоматически.
       </div>
     </section>
   );
@@ -141,12 +142,12 @@ export function DetailPanel({
   const applyDecision = () => {
     onDecisionChange(draftDecision);
     setEditing(false);
-    setActionMessage("Решение изменено локально. Production record не создан.");
+    setActionMessage("Решение изменено только в браузере. Запись в рабочей системе не создана.");
   };
 
   const approve = () => {
     onReviewStateChange("APPROVED");
-    setActionMessage("Решение подтверждено только в demo-state.");
+    setActionMessage("Решение подтверждено только в состоянии демо.");
   };
 
   return (
@@ -157,16 +158,11 @@ export function DetailPanel({
           <span>{requirement.category}</span>
           <StatusPill value={requirement.risk} quiet />
         </div>
-        <button className="icon-button" aria-label="Дополнительные действия" type="button">
-          <span />
-          <span />
-          <span />
-        </button>
       </div>
 
       <div className="detail-scroll">
         <section className="customer-requirement" aria-labelledby="customer-requirement-title">
-          <p className="eyebrow">Customer requirement</p>
+          <p className="eyebrow">Требование заказчика</p>
           <h2 id="customer-requirement-title">{requirement.text}</h2>
           <div className="source-reference">
             <Icon name="document" size={15} />
@@ -178,15 +174,15 @@ export function DetailPanel({
 
         <section className="decision-band" aria-label="Предлагаемое решение">
           <div>
-            <span>Proposed compliance</span>
-            <StatusPill value={decision} />
+            <span>Предлагаемое решение</span>
+            <StatusPill showCode value={decision} />
           </div>
           <div>
-            <span>Effective verdict</span>
-            <StatusPill value={selectedEvidence.effectiveVerdict} />
+            <span>Итог проверки</span>
+            <StatusPill showCode value={selectedEvidence.effectiveVerdict} />
           </div>
           <div className="review-reason">
-            <span>Review rationale</span>
+            <span>Почему CTRL принял такое решение</span>
             <strong>{requirement.reviewReason}</strong>
           </div>
         </section>
@@ -196,13 +192,13 @@ export function DetailPanel({
         <section className="evidence-section" aria-labelledby="evidence-title">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Source-grounded evidence</p>
-              <h3 id="evidence-title">Evidence spans</h3>
+              <p className="eyebrow">Доказательство из первоисточника</p>
+              <h3 id="evidence-title">Подтверждающие фрагменты</h3>
             </div>
-            <span className="section-count">{requirement.evidence.length} candidate(s)</span>
+            <span className="section-count">Кандидатов: {requirement.evidence.length}</span>
           </div>
           {requirement.evidence.length > 1 && (
-            <div className="evidence-tabs" role="tablist" aria-label="Evidence candidates">
+            <div className="evidence-tabs" role="tablist" aria-label="Кандидаты в доказательства">
               {requirement.evidence.map((item, index) => (
                 <button
                   aria-selected={selectedEvidence.id === item.id}
@@ -211,7 +207,7 @@ export function DetailPanel({
                   role="tab"
                   type="button"
                 >
-                  Evidence {index + 1}
+                  Доказательство {index + 1}
                   <StatusPill value={item.effectiveVerdict} quiet />
                 </button>
               ))}
@@ -224,10 +220,10 @@ export function DetailPanel({
           <section className="guardrails-section" aria-labelledby="guardrails-title">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Deterministic policy</p>
-                <h3 id="guardrails-title">Active guardrails</h3>
+                <p className="eyebrow">Детерминированная политика</p>
+                <h3 id="guardrails-title">Активные защитные проверки</h3>
               </div>
-              <span className="section-count">{requirement.guardrails.length} active</span>
+              <span className="section-count">Активно: {requirement.guardrails.length}</span>
             </div>
             <div className="guardrail-list">
               {requirement.guardrails.map((guardrail) => (
@@ -246,7 +242,7 @@ export function DetailPanel({
 
         {requirement.unsupportedPortion && (
           <section className="unsupported-note" aria-label="Неподтверждённая часть">
-            <span>Unsupported portion</span>
+            <span>Неподтверждённая часть</span>
             <strong>{requirement.unsupportedPortion}</strong>
           </section>
         )}
@@ -255,7 +251,7 @@ export function DetailPanel({
           <section className="clarification-note" aria-label="Вопрос для уточнения">
             <Icon name="flag" size={20} />
             <div>
-              <span>Suggested clarification</span>
+              <span>Предлагаемый вопрос</span>
               <strong>{requirement.clarificationQuestion}</strong>
             </div>
           </section>
@@ -266,14 +262,14 @@ export function DetailPanel({
         <details className="technical-details">
           <summary>
             <Icon name="layers" size={16} />
-            Technical trace
+            Техническая трассировка
             <Icon name="chevron-down" size={15} />
           </summary>
           <div>
-            <span>Requirement ID</span><code>{requirement.id}</code>
-            <span>EvidenceSpan</span><code>{selectedEvidence.id}</code>
-            <span>DocumentVersion</span><code>{selectedEvidence.documentVersion}</code>
-            <span>Policy</span><code>guarded-compliance-v1</code>
+            <span>ID требования</span><code>{requirement.id}</code>
+            <span>Фрагмент доказательства</span><code>{selectedEvidence.id}</code>
+            <span>Версия документа</span><code>{selectedEvidence.documentVersion}</code>
+            <span>Политика</span><code>guarded-compliance-v1</code>
           </div>
         </details>
       </div>
@@ -282,8 +278,8 @@ export function DetailPanel({
         <div className="review-state">
           <span className="review-icon"><Icon name="shield" size={20} /></span>
           <div>
-            <p id="human-review-title">Human approval</p>
-            <strong>{reviewState === "APPROVED" ? "Approved in demo" : "Final approval required"}</strong>
+            <p id="human-review-title">Проверка человеком</p>
+            <strong>{reviewState === "APPROVED" ? "Подтверждено человеком в демо" : "Требуется финальное подтверждение"}</strong>
           </div>
           <StatusPill value={reviewState === "APPROVED" ? "APPROVED" : "PENDING"} />
         </div>
@@ -297,7 +293,7 @@ export function DetailPanel({
                 onChange={(event) => setDraftDecision(event.target.value as ComplianceStatus)}
                 value={draftDecision}
               >
-                {decisionOptions.map((option) => <option key={option}>{option}</option>)}
+                {decisionOptions.map((option) => <option key={option} value={option}>{statusLabels[option]}</option>)}
               </select>
             </label>
             <button className="button button-primary" onClick={applyDecision} type="button">Сохранить</button>
@@ -307,19 +303,19 @@ export function DetailPanel({
           <div className="review-actions">
             <button className="button button-primary" disabled={reviewState === "APPROVED"} onClick={approve} type="button">
               <Icon name="check" size={16} />
-              {reviewState === "APPROVED" ? "Подтверждено" : "Approve"}
+              {reviewState === "APPROVED" ? "Подтверждено" : "Подтвердить"}
             </button>
             <button className="button button-secondary" onClick={() => { setDraftDecision(decision); setEditing(true); }} type="button">
-              Edit decision
+              Изменить решение
             </button>
-            <button className="button button-ghost" onClick={() => setActionMessage("Поиск evidence отмечен в demo-state.")} type="button">
-              <Icon name="search" size={15} /> Find more evidence
+            <button className="button button-ghost" onClick={() => setActionMessage("Поиск дополнительных доказательств отмечен только в состоянии демо.")} type="button">
+              <Icon name="search" size={15} /> Найти ещё доказательства
             </button>
             <button className="button button-ghost" onClick={() => { onReviewStateChange("CLARIFICATION_REQUESTED"); setActionMessage("Запрос на уточнение отмечен локально."); }} type="button">
-              Request clarification
+              Запросить уточнение
             </button>
-            <button className="button button-danger" onClick={() => { onReviewStateChange("ESCALATED"); setActionMessage("Требование эскалировано в demo-state."); }} type="button">
-              <Icon name="escalate" size={15} /> Escalate
+            <button className="button button-danger" onClick={() => { onReviewStateChange("ESCALATED"); setActionMessage("Требование передано эксперту только в состоянии демо."); }} type="button">
+              <Icon name="escalate" size={15} /> Передать эксперту
             </button>
           </div>
         )}

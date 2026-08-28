@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 
 import { BrandLockup } from "./components/BrandLockup";
 import { CtrlKeycap } from "./components/CtrlKeycap";
@@ -21,8 +21,8 @@ const productTruth: ProductTruthItem[] = [
     detail: (
       <div className="truth-detail-grid">
         <div><span>Продукт</span><strong>Aegis Enterprise</strong></div>
-        <div><span>Возможность</span><strong>Horizontal user scaling</strong></div>
-        <div><span>Подтверждено для</span><strong>Cloud + On-prem</strong></div>
+        <div><span>Возможность</span><strong>Масштабирование пользователей</strong></div>
+        <div><span>Контекст</span><strong>Синтетический пример</strong></div>
       </div>
     ),
   },
@@ -45,7 +45,7 @@ const productTruth: ProductTruthItem[] = [
     detail: (
       <div className="truth-evidence-detail">
         <blockquote>«Поддерживается SAML 2.0 ...»</blockquote>
-        <div><strong>Admin Guide 7.4</strong><span>§ 8.12 · стр. 143</span></div>
+        <div><strong>Руководство администратора 7.4</strong><span>§ 8.12 · стр. 143</span></div>
         <p>Не пересказ модели.<br />Точный фрагмент первоисточника.</p>
       </div>
     ),
@@ -56,9 +56,9 @@ const productTruth: ProductTruthItem[] = [
     description: "Кто разрешил использовать это как обязательство",
     detail: (
       <div className="truth-detail-grid">
-        <div><span>Роль</span><strong>Solution Architect</strong></div>
+        <div><span>Роль</span><strong>Архитектор решения</strong></div>
         <div><span>Статус</span><strong>Проверено человеком</strong></div>
-        <div><span>Decision</span><strong className="truth-decision">COMPLY</strong></div>
+        <div><span>Решение</span><strong className="truth-decision">Соответствует · COMPLY</strong></div>
       </div>
     ),
   },
@@ -85,15 +85,15 @@ const trustPrinciples = [
 const inputSources = [
   "ТЗ заказчика",
   "RFP / RFI",
-  "Security questionnaire",
+  "Анкета по ИБ",
   "Документация продукта",
-  "Release notes",
+  "Примечания к выпуску",
   "Технические спецификации",
 ];
 
 const decisionOutputs = [
   "Атомарные требования",
-  "COMPLY / PARTIAL / GAP / UNKNOWN",
+  "Соответствует / Частично / Не покрыто / Недостаточно данных",
   "Точный первоисточник",
   "Версия продукта",
   "Конфликты и пробелы",
@@ -102,18 +102,18 @@ const decisionOutputs = [
 ];
 
 const audiences = [
-  ["01", "PRESALES", "Проверить, что продукт действительно закрывает требования заказчика."],
-  ["02", "SOLUTION ARCHITECT", "Увидеть технические ограничения, версии и условия применимости."],
-  ["03", "BID / TENDER TEAM", "Собрать проверенную матрицу без ручной сверки десятков документов."],
+  ["01", "ПРЕСЕЙЛ", "Проверить, что продукт действительно закрывает требования заказчика."],
+  ["02", "АРХИТЕКТОР РЕШЕНИЯ", "Увидеть технические ограничения, версии и условия применимости."],
+  ["03", "ТЕНДЕРНАЯ КОМАНДА", "Собрать проверенную матрицу без ручной сверки десятков документов."],
 ];
 
 const engineSteps = [
-  ["01", "DECOMPOSE", "Разделить сложное требование на проверяемые части."],
-  ["02", "RETRIEVE", "Найти кандидатов в корпоративных источниках."],
-  ["03", "RERANK", "Отделить действительно релевантные фрагменты."],
-  ["04", "VERIFY", "Определить: доказывает / противоречит / недостаточно."],
-  ["05", "GUARD", "Проверить: версию · показатель · срок · источник · конфликт."],
-  ["06", "APPROVE", "Передать человеку то, что требует решения."],
+  ["01", "ДЕКОМПОЗИЦИЯ · DECOMPOSE", "Разделить сложное требование на проверяемые части."],
+  ["02", "ПОИСК · RETRIEVE", "Найти кандидатов в корпоративных источниках."],
+  ["03", "РАНЖИРОВАНИЕ · RERANK", "Отделить действительно релевантные фрагменты."],
+  ["04", "ПРОВЕРКА · VERIFY", "Определить: доказывает / противоречит / недостаточно."],
+  ["05", "ЗАЩИТНЫЕ ПРАВИЛА · GUARD", "Проверить: версию · показатель · срок · источник · конфликт."],
+  ["06", "ПОДТВЕРЖДЕНИЕ · APPROVE", "Передать человеку то, что требует решения."],
 ];
 
 const securityClaims = [
@@ -121,17 +121,67 @@ const securityClaims = [
   ["02", "ДОСТУП", "Ролевой доступ к рабочим пространствам и действиям."],
   ["03", "ПРОИСХОЖДЕНИЕ", "Неизменяемая цепочка источников и доказательств."],
   ["04", "КЛАССИФИКАЦИЯ", "Политика обработки данных зависит от их класса."],
-  ["05", "ВНЕШНИЙ INFERENCE", "Закрытые классы данных не должны автоматически уходить во внешний модельный API."],
-  ["06", "HUMAN AUTHORITY", "Модель не получает право самостоятельно принять обязательство от имени компании."],
+  ["05", "ВНЕШНИЕ МОДЕЛИ", "Закрытые классы данных не должны автоматически уходить во внешний модельный API."],
+  ["06", "РЕШЕНИЕ ЧЕЛОВЕКА", "Модель не получает право самостоятельно принять обязательство от имени компании."],
 ];
 
 function SceneLabel({ children }: { children: ReactNode }) {
   return <p className="landing-eyebrow">{children}</p>;
 }
 
+const pilotEmail = import.meta.env.VITE_PILOT_EMAIL?.trim();
+
+function formatPilotRequest(form: HTMLFormElement) {
+  const data = new FormData(form);
+  return [
+    "Заявка на пилот CTRL DOC",
+    "",
+    `Имя: ${String(data.get("name") ?? "")}`,
+    `Рабочий email: ${String(data.get("email") ?? "")}`,
+    `Компания: ${String(data.get("company") ?? "")}`,
+    `Сценарий: ${String(data.get("scenario") ?? "")}`,
+  ].join("\n");
+}
+
 export function LandingPage() {
-  const [accessNotice, setAccessNotice] = useState(false);
   const [expandedTruth, setExpandedTruth] = useState<string | null>("03");
+  const [pilotDraft, setPilotDraft] = useState<string | null>(null);
+  const [pilotStatus, setPilotStatus] = useState<string | null>(null);
+  const pilotDraftRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const targetId = window.location.hash.slice(1);
+    if (!targetId) return;
+    document.getElementById(targetId)?.scrollIntoView({ block: "start" });
+  }, []);
+
+  const preparePilotRequest = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPilotDraft(formatPilotRequest(event.currentTarget));
+    setPilotStatus(
+      pilotEmail
+        ? "Заявка подготовлена. Проверьте текст и откройте его в почтовой программе. Отправка произойдёт только после вашего подтверждения."
+        : "Заявка подготовлена, но автоматическая отправка пока не подключена. Скопируйте текст и передайте его представителю CTRL.",
+    );
+  };
+
+  const copyPilotRequest = async () => {
+    if (!pilotDraft) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(pilotDraft);
+      setPilotStatus("Текст заявки скопирован. Ничего не было отправлено автоматически.");
+    } catch {
+      pilotDraftRef.current?.focus();
+      pilotDraftRef.current?.select();
+      setPilotStatus("Не удалось скопировать автоматически. Текст выделен — скопируйте его вручную.");
+    }
+  };
+
+  const pilotMailto =
+    pilotDraft && pilotEmail
+      ? `mailto:${pilotEmail}?subject=${encodeURIComponent("Пилот CTRL DOC")}&body=${encodeURIComponent(pilotDraft)}`
+      : null;
 
   return (
     <div className="landing">
@@ -149,8 +199,8 @@ export function LandingPage() {
           <a href="#company">Компания</a>
         </nav>
         <div className="landing-nav-actions">
-          <a className="landing-demo-link" href="/demo">Посмотреть демо</a>
-          <a className="landing-access-link" href="#access">Запросить доступ</a>
+          <a className="landing-demo-link" href="/demo/guided">Бесплатное демо</a>
+          <a className="landing-access-link" href="#pilot">Обсудить пилот</a>
         </div>
       </header>
 
@@ -169,12 +219,12 @@ export function LandingPage() {
                 и показывает, где ответ доказан, где есть конфликт, а где данных недостаточно.
               </p>
               <div className="hero-actions">
-                <a className="landing-button landing-button-primary" href="/demo">
-                  Посмотреть, как работает
+                <a className="landing-button landing-button-primary" href="/demo/guided">
+                  Проверить на примере
                   <span aria-hidden="true">↗</span>
                 </a>
-                <a className="landing-button landing-button-secondary" href="#access">
-                  Запросить доступ
+                <a className="landing-button landing-button-secondary" href="#pilot">
+                  Обсудить пилот
                 </a>
               </div>
             </div>
@@ -182,7 +232,7 @@ export function LandingPage() {
             <div className="hero-object">
               <CtrlKeycap />
               <div className="hero-object-caption">
-                <span>Verified commitments</span>
+                <span>Проверенные обязательства</span>
                 <span>CTRL / 01</span>
               </div>
             </div>
@@ -215,8 +265,8 @@ export function LandingPage() {
             </div>
             <div className="mismatch-product-frame">
               <div className="product-frame-label">
-                <span>Intelligence Workbench</span>
-                <span>Synthetic-safe demo</span>
+                <span>Рабочая область CTRL DOC</span>
+                <span>Безопасное демо</span>
               </div>
               <MismatchPreview />
             </div>
@@ -294,7 +344,7 @@ export function LandingPage() {
                         role="region"
                       >
                         {item.detail}
-                        <small>SYNTHETIC DEMO</small>
+                        <small>СИНТЕТИЧЕСКОЕ ДЕМО</small>
                       </div>
                     )}
                   </div>
@@ -357,7 +407,7 @@ export function LandingPage() {
                 </div>
               ))}
             </div>
-            <p className="audience-note"><span>Product · Security · Legal · Engineering</span><br />подключаются там, где требуется экспертное решение.</p>
+            <p className="audience-note"><span>Продукт · Безопасность · Юристы · Разработка</span><br />подключаются там, где требуется экспертное решение.</p>
           </div>
         </section>
 
@@ -367,11 +417,11 @@ export function LandingPage() {
               <SceneLabel>09 / CTRL Engine</SceneLabel>
               <h2 id="engine-title">ИИ находит.<br />CTRL проверяет.</h2>
               <div className="engine-state" aria-hidden="true">
-                <span>CTRL / ENGINE</span><span>TRACE / ACTIVE</span><span>STATE / VERIFY</span>
+                <span>CTRL / ENGINE</span><span>ТРАССИРОВКА / АКТИВНА</span><span>СОСТОЯНИЕ / ПРОВЕРКА</span>
               </div>
             </div>
             <div className="engine-trace">
-              <span className="engine-terminal">Requirement</span>
+              <span className="engine-terminal">Требование</span>
               <ol>
                 {engineSteps.map(([number, operation, description]) => (
                   <li key={number}>
@@ -381,7 +431,7 @@ export function LandingPage() {
                   </li>
                 ))}
               </ol>
-              <span className="engine-terminal engine-terminal-output">→ Verified decision</span>
+              <span className="engine-terminal engine-terminal-output">→ Проверенное решение</span>
             </div>
           </div>
         </section>
@@ -398,7 +448,7 @@ export function LandingPage() {
                 </div>
               ))}
             </div>
-            <p className="security-note">Архитектура CTRL разделяет модельный inference,<br />корпоративные данные и авторитетное решение.</p>
+            <p className="security-note">Архитектура CTRL разделяет модельные вычисления,<br />корпоративные данные и авторитетное решение.</p>
           </div>
         </section>
 
@@ -406,7 +456,7 @@ export function LandingPage() {
           <div className="landing-grid company-layout">
             <div>
               <SceneLabel>11 / CTRL</SceneLabel>
-              <span className="company-alpha">Private alpha / 2026</span>
+              <span className="company-alpha">Пилот / 2026</span>
             </div>
             <div>
               <h2 id="company-title">Мы строим систему,<br />которая знает разницу<br />между правдоподобным ответом<br />и доказуемым обязательством.</h2>
@@ -415,32 +465,88 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="landing-final" id="access" aria-labelledby="final-title">
+        <section className="landing-final" id="pilot" aria-labelledby="final-title">
           <div className="landing-grid final-grid">
             <div className="final-brand">
               <BrandLockup inverse />
-              <span>Private alpha / 2026</span>
+              <span>Пилот / 2026</span>
             </div>
             <div className="final-keycap"><CtrlKeycap small /></div>
-            <h2 id="final-title">Каждое обязательство.<br />Под CTRL.</h2>
-            <div className="final-actions">
-              <button
-                className="landing-button landing-button-primary"
-                onClick={() => setAccessNotice(true)}
-                type="button"
-              >
-                Запросить доступ <span aria-hidden="true">↗</span>
-              </button>
-              <a href="/demo">Посмотреть демо</a>
+            <div className="pilot-layout">
+              <div className="pilot-copy">
+                <SceneLabel>12 / Пилот</SceneLabel>
+                <h2 id="final-title">Каждое обязательство.<br />Под CTRL.</h2>
+                <p>
+                  Покажем CTRL на одном вашем реальном сценарии: RFP, RFI, ТЗ или анкете по ИБ.
+                </p>
+                <p className="pilot-boundary">
+                  На этапе пилота работаем с публичными, тестовыми или предварительно
+                  согласованными материалами. Не отправляйте документы через эту форму.
+                </p>
+                <p className="pilot-commercial">
+                  Коммерческие условия — по масштабу и формату внедрения.
+                </p>
+                <a className="pilot-demo-link" href="/demo/guided">Сначала пройти безопасное демо →</a>
+              </div>
+
+              <form className="pilot-form" onSubmit={preparePilotRequest}>
+                <div className="pilot-form-heading">
+                  <span>Заявка на пилот</span>
+                  <small>Без загрузки документов</small>
+                </div>
+                <label>
+                  <span>Имя</span>
+                  <input autoComplete="name" name="name" placeholder="Как к вам обращаться" required type="text" />
+                </label>
+                <label>
+                  <span>Рабочий email</span>
+                  <input autoComplete="email" name="email" placeholder="name@company.ru" required type="email" />
+                </label>
+                <label>
+                  <span>Компания</span>
+                  <input autoComplete="organization" name="company" placeholder="Название компании" required type="text" />
+                </label>
+                <label>
+                  <span>Что хотите проверить?</span>
+                  <select defaultValue="" name="scenario" required>
+                    <option disabled value="">Выберите сценарий</option>
+                    <option>RFP</option>
+                    <option>RFI</option>
+                    <option>ТЗ</option>
+                    <option>Анкета по ИБ</option>
+                    <option>Другое</option>
+                  </select>
+                </label>
+                <button className="landing-button landing-button-primary" type="submit">
+                  Подготовить запрос на пилот <span aria-hidden="true">→</span>
+                </button>
+                <p className="pilot-form-note" id="pilot-form-note">
+                  {pilotEmail
+                    ? "Форма подготовит письмо. Оно не отправится без вашего действия в почтовой программе."
+                    : "Автоматическая отправка пока не подключена. Форма подготовит текст, который можно проверить и скопировать."}
+                </p>
+
+                {pilotDraft && (
+                  <div className="pilot-prepared">
+                    <label htmlFor="pilot-request-draft">Проверьте текст заявки</label>
+                    <textarea
+                      id="pilot-request-draft"
+                      readOnly
+                      ref={pilotDraftRef}
+                      rows={7}
+                      value={pilotDraft}
+                    />
+                    <div className="pilot-prepared-actions">
+                      {pilotMailto && <a href={pilotMailto}>Открыть в почте</a>}
+                      <button onClick={copyPilotRequest} type="button">Скопировать заявку</button>
+                    </div>
+                  </div>
+                )}
+                {pilotStatus && <p className="pilot-status" role="status">{pilotStatus}</p>}
+              </form>
             </div>
-            {accessNotice && (
-              <p className="access-notice" role="status">
-                Private alpha: запрос передаётся через представителя CTRL. Публичная форма не
-                собирает данные до подключения защищённого канала.
-              </p>
-            )}
             <footer className="landing-footer">
-              <span>CTRL DOC · Response Intelligence</span>
+              <span>CTRL DOC · Проверка обязательств</span>
               <span>Доказательства вместо предположений</span>
             </footer>
           </div>

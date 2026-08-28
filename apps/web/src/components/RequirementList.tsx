@@ -22,10 +22,10 @@ interface RequirementListProps {
 
 const filterOptions: { label: string; value: DecisionFilter }[] = [
   { label: "Все", value: "ALL" },
-  { label: "Comply", value: "COMPLY" },
-  { label: "Partial", value: "PARTIAL" },
-  { label: "Unknown", value: "UNKNOWN" },
-  { label: "Clarify", value: "NEEDS_CLARIFICATION" },
+  { label: "Соответствует", value: "COMPLY" },
+  { label: "Частично", value: "PARTIAL" },
+  { label: "Нет данных", value: "UNKNOWN" },
+  { label: "Уточнить", value: "NEEDS_CLARIFICATION" },
 ];
 
 export function RequirementList({
@@ -55,7 +55,7 @@ export function RequirementList({
     <section className="requirements-panel" aria-labelledby="requirements-heading">
       <div className="panel-heading requirements-heading">
         <div>
-          <p className="eyebrow">Atomic requirements</p>
+          <p className="eyebrow">Атомарные требования</p>
           <h1 id="requirements-heading">Требования</h1>
         </div>
         <span className="count-label">{allCount} в демо</span>
@@ -72,7 +72,7 @@ export function RequirementList({
             type="search"
             value={query}
           />
-          <kbd>⌘ K</kbd>
+          <kbd>Ctrl K</kbd>
         </label>
 
         <div className="filter-row" aria-label="Фильтры решений">
@@ -96,14 +96,14 @@ export function RequirementList({
             type="button"
           >
             <Icon name="filter" size={15} />
-            Needs review
+            Требует проверки
           </button>
         </div>
       </div>
 
       <div className="list-caption" aria-hidden="true">
-        <span>Requirement</span>
-        <span>Decision / risk</span>
+        <span>Требование</span>
+        <span>Решение / риск</span>
       </div>
 
       <div className="requirement-list" role="list" aria-live="polite">

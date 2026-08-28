@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import "./landing.css";
 import "./styles.css";
 
+import { BrandLockup } from "./components/BrandLockup";
 import { DetailPanel } from "./components/DetailPanel";
 import { Icon } from "./components/Icon";
 import {
@@ -11,7 +13,7 @@ import {
 import { demoRequirements } from "./data/demoCases";
 import type { ComplianceStatus, ReviewState, ReviewUpdate } from "./types";
 
-const workflow = ["Document", "Requirements", "Evidence", "Review", "Response"];
+const workflow = ["Документ", "Требования", "Доказательства", "Проверка", "Ответ"];
 
 export function App() {
   const [selectedId, setSelectedId] = useState("req-041");
@@ -91,35 +93,31 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="brand-block">
-          <span className="brand-mark" aria-hidden="true"><span /></span>
-          <div>
-            <strong>CTRL</strong>
-            <span>Response Intelligence</span>
-          </div>
-        </div>
+        <a aria-label="CTRL DOC — на главную" className="app-brand-link" href="/">
+          <BrandLockup compact inverse />
+        </a>
 
         <div className="project-context">
-          <span>Project</span>
-          <button type="button" aria-label="Выбрать проект">
-            RFP-2026-014 · Enterprise platform
+          <span>Демо-проект</span>
+          <div aria-label="Текущий демо-проект" className="project-name">
+            RFP-2026-014 · Корпоративная платформа
             <Icon name="chevron-down" size={14} />
-          </button>
+          </div>
         </div>
 
         <div className="header-actions">
+          <a className="workbench-home-link" href="/">← На главную</a>
           <div className="demo-badge" title="Только детерминированные синтетические данные">
-            <span /> DEMO · SAFE DATA
+            <span /> <strong>ДЕМО</strong><em>· СИНТЕТИЧЕСКИЕ ДАННЫЕ</em>
           </div>
-          <button className="avatar" aria-label="Профиль demo-пользователя" type="button">AK</button>
         </div>
       </header>
 
-      <nav className="workflow-bar" aria-label="Workflow">
+      <nav className="workflow-bar" aria-label="Этапы проверки">
         <div className="workflow-steps">
           {workflow.map((step, index) => {
             const complete = index < 3;
-            const active = step === "Review";
+            const active = step === "Проверка";
             return (
               <div
                 aria-current={active ? "step" : undefined}
@@ -134,15 +132,15 @@ export function App() {
           })}
         </div>
         <div className="workflow-summary" aria-label="Сводка решений">
-          <span><strong>{demoRequirements.length}</strong> requirements</span>
-          <span className="summary-comply"><strong>{counts.COMPLY}</strong> comply</span>
-          <span className="summary-partial"><strong>{counts.PARTIAL}</strong> partial</span>
-          <span className="summary-unknown"><strong>{counts.UNKNOWN}</strong> unknown</span>
-          <span className="summary-clarify"><strong>{counts.NEEDS_CLARIFICATION}</strong> clarify</span>
+          <span><strong>{demoRequirements.length}</strong> требований</span>
+          <span className="summary-comply"><strong>{counts.COMPLY}</strong> соответствуют</span>
+          <span className="summary-partial"><strong>{counts.PARTIAL}</strong> частично</span>
+          <span className="summary-unknown"><strong>{counts.UNKNOWN}</strong> недостаточно данных</span>
+          <span className="summary-clarify"><strong>{counts.NEEDS_CLARIFICATION}</strong> уточнить</span>
         </div>
       </nav>
 
-      <main className="workbench" aria-label="CTRL Intelligence Workbench">
+      <main className="workbench" aria-label="Рабочая область CTRL DOC">
         <div ref={(node) => { searchRef.current = node?.querySelector("input") ?? null; }} className="requirements-wrap">
           <RequirementList
             allCount={demoRequirements.length}

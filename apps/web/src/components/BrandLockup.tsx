@@ -9,7 +9,7 @@ export function BrandLockup({ compact = false, inverse = false }: BrandLockupPro
       <span className="landing-brand-key" aria-hidden="true">CTRL</span>
       <span className="landing-brand-copy">
         <strong>CTRL DOC</strong>
-        {!compact && <span>Response Intelligence</span>}
+        {!compact && <span>Проверка обязательств</span>}
       </span>
     </div>
   );
