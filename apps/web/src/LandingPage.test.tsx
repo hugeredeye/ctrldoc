@@ -150,8 +150,14 @@ describe("CTRL DOC public landing", () => {
     ).toHaveAttribute("data-motion", "css-reduced-motion-aware");
   });
 
-  it("does not make external API or inference calls", async () => {
-    const fetchSpy = vi.fn();
+  it("submits the pilot application to the same-origin endpoint and waits for success", async () => {
+    let resolveResponse: ((response: Response) => void) | undefined;
+    const fetchSpy = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >();
+    fetchSpy.mockImplementation(
+      () => new Promise<Response>((resolve) => { resolveResponse = resolve; }),
+    );
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
     render(<LandingPage />);
@@ -160,14 +166,64 @@ describe("CTRL DOC public landing", () => {
     await user.type(screen.getByRole("textbox", { name: "Рабочий email" }), "anna@example.com");
     await user.type(screen.getByRole("textbox", { name: "Компания" }), "Example");
     await user.selectOptions(screen.getByRole("combobox", { name: "Что хотите проверить?" }), "RFP");
-    await user.click(screen.getByRole("button", { name: /Подготовить запрос на пилот/ }));
+    await user.click(screen.getByRole("button", { name: /Отправить заявку/ }));
 
-    expect(screen.getByRole("status")).toHaveTextContent("автоматическая отправка пока не подключена");
-    expect(
-      (screen.getByRole("textbox", { name: "Проверьте текст заявки" }) as HTMLTextAreaElement)
-        .value,
-    ).toContain("Рабочий email: anna@example.com");
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Отправляем/ })).toBeDisabled();
+    expect(screen.queryByText("Заявка отправлена. Свяжемся с вами по рабочей почте.")).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetchSpy).toHaveBeenCalledWith("/api/pilot", expect.objectContaining({ method: "POST" }));
+    const requestInit = fetchSpy.mock.calls[0][1];
+    if (!requestInit) throw new Error("Expected fetch request options");
+    expect(JSON.parse(String(requestInit.body))).toEqual({
+      name: "Анна",
+      email: "anna@example.com",
+      company: "Example",
+      scenario: "RFP",
+      website: "",
+    });
+
+    resolveResponse?.(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Заявка отправлена. Свяжемся с вами по рабочей почте.",
+    );
+  });
+
+  it("shows a useful validation error without reporting success", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 400 })));
+    const user = userEvent.setup();
+    render(<LandingPage />);
+
+    await user.type(screen.getByRole("textbox", { name: "Имя" }), "Анна");
+    await user.type(screen.getByRole("textbox", { name: "Рабочий email" }), "anna@example.com");
+    await user.type(screen.getByRole("textbox", { name: "Компания" }), "Example");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Что хотите проверить?" }), "RFP");
+    await user.click(screen.getByRole("button", { name: /Отправить заявку/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Проверьте заполнение формы и попробуйте ещё раз.",
+    );
+    expect(screen.queryByText("Заявка отправлена. Свяжемся с вами по рабочей почте.")).not.toBeInTheDocument();
+  });
+
+  it("shows a delivery error and a clickable fallback email", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+    const user = userEvent.setup();
+    render(<LandingPage />);
+
+    await user.type(screen.getByRole("textbox", { name: "Имя" }), "Анна");
+    await user.type(screen.getByRole("textbox", { name: "Рабочий email" }), "anna@example.com");
+    await user.type(screen.getByRole("textbox", { name: "Компания" }), "Example");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Что хотите проверить?" }), "RFP");
+    await user.click(screen.getByRole("button", { name: /Отправить заявку/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось отправить заявку.");
+    expect(screen.getByRole("link", { name: "pilot@ctrldoc.tech" })).toHaveAttribute(
+      "href",
+      "mailto:pilot@ctrldoc.tech",
+    );
+    expect(screen.queryByText(/автоматическая отправка пока не подключена/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/скопировать заявку/i)).not.toBeInTheDocument();
   });
 
   it("does not publish pricing, careers, fake metrics, providers, or certification claims", () => {

@@ -3,8 +3,9 @@
 The independent Vite/React/TypeScript frontend serves the Russian CTRL DOC brand landing at `/`,
 the short guided public demo at `/demo/guided`, and the preserved Intelligence Workbench at
 `/demo`. All three surfaces use only deterministic synthetic fixtures and local assets. They do not
-call the CTRL API, OpenAI, DeepSeek, or any other external service. Human actions update local
-component state only. The public demo does not accept arbitrary text or document uploads.
+call the CTRL API, OpenAI, DeepSeek, or any model service. Human demo actions update local component
+state only. The public demo does not accept arbitrary text or document uploads. The only production
+network action is the landing's same-origin pilot application endpoint described below.
 
 The landing self-hosts Onest and IBM Plex Mono WOFF2 files from their official OFL repositories.
 Exact provenance, revisions, checksums, and license locations are recorded in
@@ -55,25 +56,45 @@ Create or connect the Cloudflare Worker named `ctrldoc`, then enter these exact 
 
 Vite writes the production bundle to `dist`. The `wrangler.jsonc` file deploys `./dist` as Workers
 Static Assets. Its `single-page-application` fallback serves `index.html` for browser navigation to
-unmatched asset paths, so `/demo` and `/demo/guided` work when opened directly or refreshed.
+unmatched asset paths, so `/demo` and `/demo/guided` work when opened directly or refreshed. Static
+requests bypass the Worker; only `/api/*` runs the Worker first. No legacy Cloudflare Pages
+configuration, secret, or environment variable is used.
 
-No Worker entry point, API handler, runtime binding, secret, environment variable, or legacy
-Cloudflare Pages configuration is required for this static-only deployment.
+The deployed configuration is:
+
+- Worker name: `ctrldoc`
+- Worker entry point: `./worker/index.ts`
+- Static asset binding: `ASSETS`
+- Static asset directory: `./dist`
+- SPA fallback: `single-page-application`
+- Worker-first routes: `/api/*`
+- Email binding: `PILOT_EMAIL`
+- Allowed sender: `pilot@ctrldoc.tech`
+- Recipient: the single verified Cloudflare Destination Address declared in `wrangler.jsonc`
+- Worker-only recipient variable: `PILOT_DESTINATION_ADDRESS`
 
 ## Scope boundary
 
 The landing's product reconstruction and Workbench use synthetic-safe data. Approval, escalation,
-evidence search, decision edits, and access-request feedback are explicitly non-authoritative local
-interactions. Production auth, RLS, storage, policy, and HumanReview writes are unchanged.
+evidence search, and decision edits are explicitly non-authoritative local interactions. Production
+auth, RLS, storage, policy, and HumanReview writes are unchanged. No product backend or
+document-processing API is exposed by this Worker.
 
-## Pilot request handoff
+## Pilot application delivery
 
-The pilot form never pretends that a server accepted a request. By default it prepares a readable
-application that the visitor can review and copy, and explicitly states that automatic submission
-is not connected. If a monitored mailbox is available, set `VITE_PILOT_EMAIL` at build time; the
-prepared state then offers an `Открыть в почте` link, and the visitor still sends the message from
-their own mail client.
+The form sends JSON to the same-origin `POST /api/pilot` endpoint. The Worker validates the request,
+then awaits Cloudflare's native `send_email` binding before returning success. It sends one plain-text
+message from `pilot@ctrldoc.tech` directly to the verified Destination Address configured for the
+binding. The Worker reads that recipient from deployment configuration; it is never included in the
+frontend bundle or public UI. If Cloudflare rejects delivery, the form reports an error and keeps the
+public `mailto:pilot@ctrldoc.tech` fallback visible.
 
-Before a production launch, CTRL must provision and monitor that contact channel (or deliberately
-implement an approved submission service) and publish the corresponding data-handling notice. No
-submission endpoint or mailbox address is invented in this frontend.
+The endpoint accepts only `name`, `email`, `company`, `scenario`, and the hidden `website` honeypot.
+It rejects oversized or malformed bodies, unsupported content types, unknown fields, invalid email
+addresses, and scenarios outside the fixed list. Tests replace the email binding with a fake; they do
+not send real messages.
+
+Before the first production deployment, confirm that `PILOT_EMAIL.destination_address` and the
+Worker-only `PILOT_DESTINATION_ADDRESS` value in `wrangler.jsonc` match the verified Cloudflare
+Destination Address. The public Email Routing alias must not be used as the notification recipient.
+Keep dashboard build variables and secrets empty; `wrangler.jsonc` is the binding source of truth.

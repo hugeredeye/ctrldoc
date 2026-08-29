@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 
 import { BrandLockup } from "./components/BrandLockup";
@@ -129,25 +129,14 @@ function SceneLabel({ children }: { children: ReactNode }) {
   return <p className="landing-eyebrow">{children}</p>;
 }
 
-const pilotEmail = import.meta.env.VITE_PILOT_EMAIL?.trim();
+type PilotFormState = "idle" | "submitting" | "success" | "validation-error" | "server-error";
 
-function formatPilotRequest(form: HTMLFormElement) {
-  const data = new FormData(form);
-  return [
-    "Заявка на пилот CTRL DOC",
-    "",
-    `Имя: ${String(data.get("name") ?? "")}`,
-    `Рабочий email: ${String(data.get("email") ?? "")}`,
-    `Компания: ${String(data.get("company") ?? "")}`,
-    `Сценарий: ${String(data.get("scenario") ?? "")}`,
-  ].join("\n");
-}
+const pilotEmail = "pilot@ctrldoc.tech";
 
 export function LandingPage() {
   const [expandedTruth, setExpandedTruth] = useState<string | null>("03");
-  const [pilotDraft, setPilotDraft] = useState<string | null>(null);
+  const [pilotFormState, setPilotFormState] = useState<PilotFormState>("idle");
   const [pilotStatus, setPilotStatus] = useState<string | null>(null);
-  const pilotDraftRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const targetId = window.location.hash.slice(1);
@@ -155,33 +144,50 @@ export function LandingPage() {
     document.getElementById(targetId)?.scrollIntoView({ block: "start" });
   }, []);
 
-  const preparePilotRequest = (event: FormEvent<HTMLFormElement>) => {
+  const submitPilotRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setPilotDraft(formatPilotRequest(event.currentTarget));
-    setPilotStatus(
-      pilotEmail
-        ? "Заявка подготовлена. Проверьте текст и откройте его в почтовой программе. Отправка произойдёт только после вашего подтверждения."
-        : "Заявка подготовлена, но автоматическая отправка пока не подключена. Скопируйте текст и передайте его представителю CTRL.",
-    );
-  };
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setPilotFormState("submitting");
+    setPilotStatus(null);
 
-  const copyPilotRequest = async () => {
-    if (!pilotDraft) return;
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
-      await navigator.clipboard.writeText(pilotDraft);
-      setPilotStatus("Текст заявки скопирован. Ничего не было отправлено автоматически.");
+      const response = await fetch("/api/pilot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: String(data.get("name") ?? ""),
+          email: String(data.get("email") ?? ""),
+          company: String(data.get("company") ?? ""),
+          scenario: String(data.get("scenario") ?? ""),
+          website: String(data.get("website") ?? ""),
+        }),
+      });
+
+      if (response.ok) {
+        form.reset();
+        setPilotFormState("success");
+        setPilotStatus("Заявка отправлена. Свяжемся с вами по рабочей почте.");
+        return;
+      }
+
+      if ([400, 413, 415].includes(response.status)) {
+        setPilotFormState("validation-error");
+        setPilotStatus(
+          response.status === 413
+            ? "Данные формы слишком длинные. Сократите значения и попробуйте ещё раз."
+            : "Проверьте заполнение формы и попробуйте ещё раз.",
+        );
+        return;
+      }
+
+      setPilotFormState("server-error");
+      setPilotStatus("Не удалось отправить заявку. Попробуйте ещё раз или напишите нам на pilot@ctrldoc.tech.");
     } catch {
-      pilotDraftRef.current?.focus();
-      pilotDraftRef.current?.select();
-      setPilotStatus("Не удалось скопировать автоматически. Текст выделен — скопируйте его вручную.");
+      setPilotFormState("server-error");
+      setPilotStatus("Не удалось отправить заявку. Попробуйте ещё раз или напишите нам на pilot@ctrldoc.tech.");
     }
   };
-
-  const pilotMailto =
-    pilotDraft && pilotEmail
-      ? `mailto:${pilotEmail}?subject=${encodeURIComponent("Пилот CTRL DOC")}&body=${encodeURIComponent(pilotDraft)}`
-      : null;
 
   return (
     <div className="landing">
@@ -489,22 +495,26 @@ export function LandingPage() {
                 <a className="pilot-demo-link" href="/demo/guided">Сначала пройти безопасное демо →</a>
               </div>
 
-              <form className="pilot-form" onSubmit={preparePilotRequest}>
+              <form
+                aria-busy={pilotFormState === "submitting"}
+                className="pilot-form"
+                onSubmit={submitPilotRequest}
+              >
                 <div className="pilot-form-heading">
                   <span>Заявка на пилот</span>
                   <small>Без загрузки документов</small>
                 </div>
                 <label>
                   <span>Имя</span>
-                  <input autoComplete="name" name="name" placeholder="Как к вам обращаться" required type="text" />
+                  <input autoComplete="name" maxLength={120} name="name" placeholder="Как к вам обращаться" required type="text" />
                 </label>
                 <label>
                   <span>Рабочий email</span>
-                  <input autoComplete="email" name="email" placeholder="name@company.ru" required type="email" />
+                  <input autoComplete="email" maxLength={254} name="email" placeholder="name@company.ru" required type="email" />
                 </label>
                 <label>
                   <span>Компания</span>
-                  <input autoComplete="organization" name="company" placeholder="Название компании" required type="text" />
+                  <input autoComplete="organization" maxLength={160} name="company" placeholder="Название компании" required type="text" />
                 </label>
                 <label>
                   <span>Что хотите проверить?</span>
@@ -517,32 +527,33 @@ export function LandingPage() {
                     <option>Другое</option>
                   </select>
                 </label>
-                <button className="landing-button landing-button-primary" type="submit">
-                  Подготовить запрос на пилот <span aria-hidden="true">→</span>
+                <label aria-hidden="true" className="pilot-honeypot">
+                  <span>Сайт</span>
+                  <input autoComplete="off" maxLength={200} name="website" tabIndex={-1} type="text" />
+                </label>
+                <button
+                  className="landing-button landing-button-primary"
+                  disabled={pilotFormState === "submitting"}
+                  type="submit"
+                >
+                  {pilotFormState === "submitting" ? "Отправляем…" : "Отправить заявку"}
+                  {pilotFormState !== "submitting" && <span aria-hidden="true"> →</span>}
                 </button>
                 <p className="pilot-form-note" id="pilot-form-note">
-                  {pilotEmail
-                    ? "Форма подготовит письмо. Оно не отправится без вашего действия в почтовой программе."
-                    : "Автоматическая отправка пока не подключена. Форма подготовит текст, который можно проверить и скопировать."}
+                  Контактные данные используются только для связи по поводу пилота. Не прикладывайте
+                  конфиденциальные документы через эту форму.
                 </p>
-
-                {pilotDraft && (
-                  <div className="pilot-prepared">
-                    <label htmlFor="pilot-request-draft">Проверьте текст заявки</label>
-                    <textarea
-                      id="pilot-request-draft"
-                      readOnly
-                      ref={pilotDraftRef}
-                      rows={7}
-                      value={pilotDraft}
-                    />
-                    <div className="pilot-prepared-actions">
-                      {pilotMailto && <a href={pilotMailto}>Открыть в почте</a>}
-                      <button onClick={copyPilotRequest} type="button">Скопировать заявку</button>
-                    </div>
-                  </div>
+                <p className="pilot-contact">
+                  Или напишите напрямую: <a href={`mailto:${pilotEmail}`}>{pilotEmail}</a>
+                </p>
+                {pilotStatus && (
+                  <p
+                    className={`pilot-status pilot-status-${pilotFormState}`}
+                    role={pilotFormState.endsWith("error") ? "alert" : "status"}
+                  >
+                    {pilotStatus}
+                  </p>
                 )}
-                {pilotStatus && <p className="pilot-status" role="status">{pilotStatus}</p>}
               </form>
             </div>
             <footer className="landing-footer">

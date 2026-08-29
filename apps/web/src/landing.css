@@ -2265,6 +2265,7 @@
 }
 
 .pilot-form {
+  position: relative;
   display: grid;
   gap: 0;
   padding: 0 18px 18px;
@@ -2316,8 +2317,7 @@
   box-shadow: 0 0 0 3px rgb(38 91 239 / 15%);
 }
 
-.pilot-form > label > span,
-.pilot-prepared > label {
+.pilot-form > label > span {
   color: #a9b3ad;
   font: 540 8.5px/1.4 "IBM Plex Mono CTRL", monospace;
   letter-spacing: 0.07em;
@@ -2369,11 +2369,6 @@
   outline: 0;
 }
 
-.pilot-prepared textarea:focus-visible {
-  outline: 2px solid #7fa1ff;
-  outline-offset: 3px;
-}
-
 .pilot-form input:-webkit-autofill,
 .pilot-form input:-webkit-autofill:hover,
 .pilot-form input:-webkit-autofill:focus {
@@ -2388,6 +2383,25 @@
   margin-top: 18px;
 }
 
+.pilot-form > .landing-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+  transform: none;
+}
+
+.pilot-form > .pilot-honeypot {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: -1px;
+  padding: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .pilot-form-note {
   margin: 13px 2px 0;
   color: #909b94;
@@ -2395,53 +2409,22 @@
   line-height: 1.55;
 }
 
-.pilot-prepared {
-  display: grid;
-  gap: 10px;
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px solid #29352f;
+.pilot-contact {
+  margin: 9px 2px 0;
+  color: #909b94;
+  font-size: 9.5px;
+  line-height: 1.55;
 }
 
-.pilot-prepared textarea {
-  width: 100%;
-  padding: 13px;
-  resize: vertical;
-  color: #c7cec9;
-  background: #111c18;
-  border: 1px solid #344139;
-  border-radius: 2px;
-  font: 500 10px/1.55 "IBM Plex Mono CTRL", monospace;
+.pilot-contact a {
+  color: #c3cbc6;
+  border-bottom: 1px solid #526057;
 }
 
-.pilot-prepared-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.pilot-prepared-actions a,
-.pilot-prepared-actions button {
-  min-height: 38px;
-  padding: 0 12px;
-  color: #d8dcd8;
-  background: transparent;
-  border: 1px solid #536159;
-  border-radius: 2px;
-  cursor: pointer;
-  font-size: 9px;
-}
-
-.pilot-prepared-actions a {
-  display: inline-flex;
-  align-items: center;
-}
-
-.pilot-prepared-actions a:hover,
-.pilot-prepared-actions button:hover {
+.pilot-contact a:hover,
+.pilot-contact a:focus-visible {
   color: #fff;
-  border-color: #89958e;
+  border-color: #8b9890;
 }
 
 .pilot-status {
@@ -2449,6 +2432,11 @@
   color: #9fc7b1;
   font-size: 10px;
   line-height: 1.5;
+}
+
+.pilot-status-validation-error,
+.pilot-status-server-error {
+  color: #f0aaa2;
 }
 
 .final-keycap {
@@ -2524,17 +2512,6 @@
     grid-template-columns: 1fr;
     align-content: center;
     gap: 4px;
-  }
-
-  .pilot-prepared-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .pilot-prepared-actions a,
-  .pilot-prepared-actions button {
-    justify-content: center;
-    width: 100%;
   }
 
   .landing-footer {

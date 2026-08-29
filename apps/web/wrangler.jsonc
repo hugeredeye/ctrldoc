@@ -1,8 +1,21 @@
 {
   "name": "ctrldoc",
+  "main": "./worker/index.ts",
   "compatibility_date": "2026-08-28",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  }
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "PILOT_DESTINATION_ADDRESS": "ctrldoc920@gmail.com"
+  },
+  "send_email": [
+    {
+      "name": "PILOT_EMAIL",
+      "destination_address": "ctrldoc920@gmail.com",
+      "allowed_sender_addresses": ["pilot@ctrldoc.tech"]
+    }
+  ]
 }
