@@ -230,7 +230,7 @@ export function LandingPage() {
                   <span aria-hidden="true">↗</span>
                 </a>
                 <a className="landing-button landing-button-secondary" href="#pilot">
-                  Обсудить пилот
+                  Обсудить пилот <span className="hero-secondary-arrow" aria-hidden="true">→</span>
                 </a>
               </div>
             </div>
