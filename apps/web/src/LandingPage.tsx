@@ -108,12 +108,12 @@ const audiences = [
 ];
 
 const engineSteps = [
-  ["01", "ДЕКОМПОЗИЦИЯ · DECOMPOSE", "Разделить сложное требование на проверяемые части."],
-  ["02", "ПОИСК · RETRIEVE", "Найти кандидатов в корпоративных источниках."],
-  ["03", "РАНЖИРОВАНИЕ · RERANK", "Отделить действительно релевантные фрагменты."],
-  ["04", "ПРОВЕРКА · VERIFY", "Определить: доказывает / противоречит / недостаточно."],
-  ["05", "ЗАЩИТНЫЕ ПРАВИЛА · GUARD", "Проверить: версию · показатель · срок · источник · конфликт."],
-  ["06", "ПОДТВЕРЖДЕНИЕ · APPROVE", "Передать человеку то, что требует решения."],
+  ["01", "ДЕКОМПОЗИЦИЯ", "DECOMPOSE", "Разделить сложное требование на проверяемые части."],
+  ["02", "ПОИСК", "RETRIEVE", "Найти кандидатов в корпоративных источниках."],
+  ["03", "РАНЖИРОВАНИЕ", "RERANK", "Отделить действительно релевантные фрагменты."],
+  ["04", "ПРОВЕРКА", "VERIFY", "Определить: доказывает / противоречит / недостаточно."],
+  ["05", "ЗАЩИТНЫЕ ПРАВИЛА", "GUARD", "Проверить: версию · показатель · срок · источник · конфликт."],
+  ["06", "ПОДТВЕРЖДЕНИЕ", "APPROVE", "Передать человеку то, что требует решения."],
 ];
 
 const securityClaims = [
@@ -221,8 +221,9 @@ export function LandingPage() {
                 что можно обещать заказчику.
               </h1>
               <p className="hero-support">
-                CTRL проверяет требования по документации продукта, версиям и первоисточникам —
-                и показывает, где ответ доказан, где есть конфликт, а где данных недостаточно.
+                CTRL DOC сверяет требования заказчика с документацией продукта, находит
+                подтверждения, пробелы и конфликты. Человек проверяет результат — и компания
+                видит, что можно обещать клиенту.
               </p>
               <div className="hero-actions">
                 <a className="landing-button landing-button-primary" href="/demo/guided">
@@ -244,10 +245,10 @@ export function LandingPage() {
             </div>
 
             <div className="hero-sequence" aria-label="Процесс CTRL">
-              <span>RFP / RFI / ТЗ</span><i>→</i>
-              <span>Требование</span><i>→</i>
-              <span>Доказательство</span><i>→</i>
-              <span>Решение</span>
+              <span>Примеры: ТЗ / RFP / RFI / анкета по ИБ</span><i>→</i>
+              <span>Проверка документации продукта</span><i>→</i>
+              <span>Подтверждения / пробелы / конфликты</span><i>→</i>
+              <span>Решение проверяет человек</span>
             </div>
           </div>
           <div className="hero-index" aria-hidden="true">01</div>
@@ -263,10 +264,10 @@ export function LandingPage() {
                 чтобы взять обязательство перед заказчиком.
               </p>
               <div className="mismatch-logic" aria-label="Логика проверки">
-                <span>Семантически близко</span><i>→</i>
-                <span>Разные показатели</span><i>→</i>
-                <span>Доказательство отклонено</span><i>→</i>
-                <strong>Недостаточно данных</strong>
+                <span>Фрагмент похож по смыслу</span><i>→</i>
+                <span>Показатели не совпадают</span><i>→</i>
+                <span>Доказательства недостаточно</span><i>→</i>
+                <strong>CTRL не обещает соответствие</strong>
               </div>
             </div>
             <div className="mismatch-product-frame">
@@ -294,6 +295,10 @@ export function LandingPage() {
                 <p>«Что мы действительно<br />можем подтвердить?»</p>
               </div>
             </div>
+            <p className="worldview-note">
+              Генерация текста начинается с ответа. CTRL — с проверки фактов; финальное
+              обязательство подтверждает человек.
+            </p>
           </div>
         </section>
 
@@ -303,14 +308,21 @@ export function LandingPage() {
             <h2 id="exchange-title">Сначала — требования.<br />Потом — доказательства.</h2>
             <div className="exchange-layout">
               <div className="exchange-territory">
-                <span>На входе</span>
+                <span>01 / Передаёте CTRL</span>
                 <ul>{inputSources.map((item) => <li key={item}>{item}</li>)}</ul>
               </div>
-              <div className="exchange-trace" aria-hidden="true">
-                <span>CTRL</span><i /><b>→</b>
+              <div className="exchange-trace">
+                <div>
+                  <span>02 / CTRL проверяет</span>
+                  <p>
+                    Разбирает требования, находит доказательства, сверяет версии и выявляет
+                    конфликты.
+                  </p>
+                </div>
+                <i aria-hidden="true" /><b aria-hidden="true">→</b>
               </div>
               <div className="exchange-territory exchange-output">
-                <span>На выходе</span>
+                <span>03 / Получаете</span>
                 <ul>{decisionOutputs.map((item) => <li key={item}>{item}</li>)}</ul>
               </div>
             </div>
@@ -429,10 +441,10 @@ export function LandingPage() {
             <div className="engine-trace">
               <span className="engine-terminal">Требование</span>
               <ol>
-                {engineSteps.map(([number, operation, description]) => (
+                {engineSteps.map(([number, operation, machineCode, description]) => (
                   <li key={number}>
                     <span>{number}</span>
-                    <strong>{operation}</strong>
+                    <strong><span>{operation}</span><small>{machineCode}</small></strong>
                     <p>{description}</p>
                   </li>
                 ))}

@@ -22,9 +22,12 @@ describe("CTRL DOC public landing", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByText(/CTRL проверяет требования по документации продукта, версиям и первоисточникам/),
+      screen.getByText(/CTRL DOC сверяет требования заказчика с документацией продукта/),
     ).toBeVisible();
-    expect(screen.getByText("RFP / RFI / ТЗ")).toBeVisible();
+    const heroProcess = screen.getByLabelText("Процесс CTRL");
+    expect(heroProcess).toHaveTextContent("Примеры: ТЗ / RFP / RFI / анкета по ИБ");
+    expect(heroProcess).toHaveTextContent("Проверка документации продукта");
+    expect(heroProcess).toHaveTextContent("Решение проверяет человек");
     expect(screen.getByRole("heading", { name: "Похоже — не значит доказано." })).toBeVisible();
     expect(
       screen.getByRole("heading", { name: "Сначала — требования. Потом — доказательства." }),
@@ -33,6 +36,10 @@ describe("CTRL DOC public landing", () => {
     expect(
       screen.getByRole("heading", { name: "Каждое обязательство. Под CTRL." }),
     ).toBeVisible();
+    expect(screen.getByText(/CTRL — с проверки фактов/)).toBeVisible();
+    expect(screen.getByText("01 / Передаёте CTRL")).toBeVisible();
+    expect(screen.getByText("02 / CTRL проверяет")).toBeVisible();
+    expect(screen.getByText("03 / Получаете")).toBeVisible();
   });
 
   it("connects every desktop navigation item to its matching section", () => {

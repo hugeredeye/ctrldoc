@@ -25,17 +25,17 @@ export function MismatchPreview() {
       </div>
       <div className="preview-verification">
         <div>
-          <span>Семантически близко</span>
-          <strong>Доказательство найдено</strong>
+          <span>Похожий по смыслу фрагмент</span>
+          <strong>Кандидат найден</strong>
         </div>
         <i>→</i>
         <div className="preview-guardrail">
-          <span>Разные показатели</span>
+          <span>Показатели не совпадают</span>
           <strong>Зарегистрированные ≠ одновременные</strong>
         </div>
         <i>→</i>
         <div>
-          <span>Эффективный вердикт</span>
+          <span>Итог проверки</span>
           <strong>Недостаточно доказательств</strong>
         </div>
       </div>
